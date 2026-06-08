@@ -1,0 +1,442 @@
+# MetasMaua2026 — Histórico de Brainstorming
+
+> Projeto: Aplicação web de gestão de metas corporativas  
+> Metodologia: SDD (Specification-Driven Development) + GSD (Goal-Driven Design)  
+> Início: 2026-06-08  
+> Status: Planejamento / Brainstorming — Sprint 0 não iniciado
+
+---
+
+## Sessão 1 — 2026-06-08
+
+### Requisitos levantados pelo usuário
+
+1. **Página de login** com autenticação Google, restrita ao domínio `@estaleiromaua.ind.br`
+2. **Visão geral do CEO** com organograma dos setores: Financeiro, Produção, Planejamento, Qualidade, Manutenção, Compliance, Comercial e EHS — com gamificação via preenchimento progressivo conforme percentual das metas
+3. **Página de detalhamento** para que cada gestor visualize suas metas individualmente, separadas por setor e diretoria
+4. **Página de configuração** das metas: nome do gestor, meta, peso, nome do superior imediato
+
+### Stack definida
+
+| Camada | Tecnologia | Motivo |
+|--------|-----------|--------|
+| Framework | Next.js 15 (App Router) | Server Components, Server Actions, RSC reduzem round-trips |
+| Estilo | Tailwind CSS + shadcn/ui | Headless, customizável, evita estilos genéricos |
+| Auth | Supabase Auth + Google OAuth | Nativo no ecossistema, sem dependência extra |
+| Banco de dados | Supabase (PostgreSQL + RLS) | Row Level Security garante isolamento por role sem lógica extra no front |
+| Estado servidor | TanStack Query | Cache, invalidação e revalidação automática |
+| Org chart | d3-org-chart | Maduro, flexível, suporte a SVG fill para gamificação |
+| Hospedagem | Vercel | Deploy contínuo, Edge Middleware para auth, Analytics integrado |
+
+---
+
+## Decisões tomadas
+
+### Modelo de metas
+- **Opção A — Cascata (OKR clássico)**: CEO define metas → Diretores herdam e desdobram → Gestores herdam dos Diretores
+- O percentual do CEO é a média ponderada dos diretores, que é a média ponderada dos gestores
+
+### Lançamento do realizado
+- **Manual**: o gestor preenche o valor atual periodicamente
+- Ao lançar, devem aparecer junto: **memórias de cálculo** e **evidências** (arquivos, links, comentários)
+
+### Periodicidade
+- Metas **anuais** com acompanhamento **trimestral**
+
+### RBAC (controle de acesso por papéis)
+```
+ceo        → vê tudo, org chart completo
+director   → vê suas metas e de seus subordinados diretos
+manager    → vê somente suas próprias metas
+admin      → acessa página de configuração de metas
+```
+
+---
+
+## Organograma Mauá (estrutura completa)
+
+```
+CEO: Miro Arantes
+├── Diretor de Operações: Marcelo Arantes
+│   ├── Gerência Técnica: Alexander Araújo
+│   │   ├── Métodos e Processos
+│   │   ├── CQ
+│   │   ├── Planejamento
+│   │   └── Engenharia
+│   ├── Gerência Produção: Alexandre Nora
+│   │   └── Produção
+│   ├── Gerência Manutenção: Alexandre Nora
+│   │   └── Manutenção
+│   ├── Gerência Suprimentos: Ernani Brito
+│   │   ├── Suprimentos
+│   │   └── Almoxarifado
+│   └── Gerência Contratos: Alexandre Trindade
+│       └── Contratos
+├── Diretoria RH/EHS: Marcello Romullo (acumula Gerente RH)
+│   └── Gerente EHS: Diogo
+├── Diretor Comercial: Hansel
+│   ├── Gerente Comercial (Orçamento): Paulo Roberto
+│   ├── Gerente Comercial (Vendas): [Em aberto — exibir como nó vazio]
+│   └── Gerente IT: Marcelo Cohen
+├── Gerente de CGQ: Claudia
+│   ├── Coordenadora Compliance: Camila
+│   └── CGQ
+└── Gerente Financeiro: Joceir
+    └── Coordenador Financeiro: [Em aberto — exibir como nó vazio]
+```
+
+**Regra de exibição do organograma:** somente até o 2º nível (CEO → subordinados diretos).  
+Clique em um nó abre o detalhamento daquele nó e seus subordinados.
+
+---
+
+## Schema de banco (rascunho aprovado)
+
+```sql
+-- Usuários
+users
+  id            uuid PK
+  email         text UNIQUE
+  name          text
+  role          enum(ceo, director, manager, admin)
+  department_id uuid FK departments
+  superior_id   uuid FK users (self-reference)
+  avatar_url    text
+  is_placeholder boolean DEFAULT false  -- para cargos "Em aberto"
+
+-- Departamentos / Áreas
+departments
+  id          uuid PK
+  name        text
+  sector      enum(Financeiro, Produção, Planejamento, Qualidade,
+                    Manutenção, Compliance, Comercial, EHS)
+  director_id uuid FK users
+  parent_id   uuid FK departments (hierarquia)
+
+-- Metas
+goals
+  id            uuid PK
+  title         text
+  description   text
+  period        text  -- ex: "2026-Q1", "2026-ANUAL"
+  weight        numeric  -- peso percentual
+  target_value  numeric
+  current_value numeric
+  unit          text  -- ex: %, R$, dias, unidades
+  owner_id      uuid FK users
+  department_id uuid FK departments
+  created_at    timestamptz
+  updated_at    timestamptz
+
+-- Histórico / Acompanhamento trimestral
+goal_history
+  id           uuid PK
+  goal_id      uuid FK goals
+  value        numeric
+  notes        text        -- memória de cálculo
+  evidence_url text[]      -- links de evidências
+  recorded_at  timestamptz
+  recorded_by  uuid FK users
+
+-- Auditoria geral
+audit_log
+  id         uuid PK
+  user_id    uuid FK users
+  action     text  -- UPDATE_GOAL, LOGIN, CONFIG_CHANGE, etc.
+  entity_id  uuid
+  old_value  jsonb
+  new_value  jsonb
+  ip         text
+  timestamp  timestamptz
+```
+
+---
+
+## Design System — Decisões finais
+
+### Identidade visual
+- **Logo**: Estaleiro Mauá (elipse com tarja laranja superior e azul inferior)
+- **Modo**: Light only
+- **Responsividade**: Desktop-first (uso corporativo interno)
+- **Tipografia**: Inter (padrão shadcn/ui)
+
+### Paleta de tokens
+
+```css
+/* Primitivos */
+--maua-orange:    #F18213;
+--maua-navy:      #364B59;
+--maua-white:     #FFFFFF;
+--maua-gray-50:   #F8F9FA;
+--maua-gray-200:  #E2E8F0;
+--maua-gray-500:  #6B7280;
+--maua-gray-900:  #111827;
+
+/* Semânticos */
+--color-primary:     var(--maua-navy);      /* estrutura, headers, botões */
+--color-accent:      var(--maua-orange);    /* CTAs, highlights, fill da gamificação */
+--color-background:  var(--maua-white);
+--color-surface:     var(--maua-gray-50);
+--color-border:      var(--maua-gray-200);
+--color-text:        var(--maua-gray-900);
+--color-muted:       var(--maua-gray-500);
+```
+
+### Gamificação — lógica de cor do fill
+```
+0%  –  30%  → fill laranja fraco (opacity 30%)
+31% –  60%  → fill laranja médio (opacity 60%)
+61% –  89%  → fill laranja forte (#F18213)
+90% – 100%  → fill navy (#364B59) + ícone de troféu
+```
+
+### Componentes-base a definir
+| Componente | Descrição |
+|------------|-----------|
+| `OrgNode` | Nó do organograma com SVG clip-path animado |
+| `GoalCard` | Card de meta com progresso, peso e status trimestral |
+| `ProgressRing` | Indicador circular de percentual |
+| `EvidenceUpload` | Anexo de evidência ao lançar resultado |
+| `QuarterBadge` | Badge Q1/Q2/Q3/Q4 com status de preenchimento |
+
+---
+
+## Pontos de atenção confirmados
+
+- **Segurança**:
+  - RLS no Supabase garante isolamento por role no banco
+  - Edge Middleware do Next.js valida domínio `@estaleiromaua.ind.br` antes de qualquer rota
+  - Server Actions re-verificam role no servidor — nunca confiar no client
+  - `SUPABASE_SERVICE_ROLE_KEY` apenas em Server Actions, nunca exposta ao browser
+  - Trigger no Postgres para log automático de qualquer UPDATE em goals
+- **Performance**:
+  - Server Components + Suspense com Skeleton para o org chart do CEO
+  - View ou Materialized View no Postgres para consolidado do CEO (não calcular no front)
+- **Gamificação**: SVG clip-path animado (não CSS height) — mais fluido e funciona em qualquer forma
+- **Hospedagem**: Vercel — Edge Middleware, Analytics e Speed Insights incluídos
+- **Escalabilidade**: Não prioritária — aplicação interna com usuários limitados
+
+---
+
+## Observabilidade — Stack definida
+
+| Ferramenta | O que monitora |
+|-----------|---------------|
+| Vercel Analytics | Page views, Web Vitals, erros de build |
+| Vercel Speed Insights | LCP, CLS, FID por rota |
+| Sentry | Erros em runtime (front + back) |
+| Supabase Dashboard | Queries lentas, conexões, armazenamento |
+| `audit_log` (próprio) | Quem alterou qual meta e quando |
+
+---
+
+## Estratégia de desenvolvimento — Ordem definitiva
+
+### Por que essa ordem?
+
+> Princípio GSD aplicado: entregar valor verificável a cada fase, sem dependências bloqueantes.
+
+```
+FASE 0 — Fundação (sem UI)
+  ├── Criar projeto Next.js 15 + Tailwind + shadcn/ui
+  ├── Criar projeto Supabase + configurar tabelas + RLS
+  ├── Configurar Google OAuth com restrição de domínio
+  ├── Configurar tokens de design (CSS vars) e tema shadcn
+  └── Deploy inicial vazio na Vercel (valida pipeline CI/CD)
+  → Entrega: infraestrutura funcionando, auth protegendo rotas
+
+FASE 1 — Auth + Layout base
+  ├── Página de login (Google Sign-in + validação de domínio)
+  ├── Edge Middleware de proteção de rotas
+  ├── Layout principal (sidebar com nav por role)
+  └── Seed: inserir hierarquia completa da Mauá no banco
+  → Entrega: qualquer usuário @estaleiromaua.ind.br já consegue logar
+
+FASE 2 — Configuração (Admin)
+  ├── Página de gestão de usuários e cargos
+  ├── Página de criação/edição de metas
+  ├── Atribuição de peso e superior imediato
+  └── Validação: soma dos pesos = 100% por gestor
+  → Entrega: admin consegue cadastrar toda a estrutura de metas
+
+FASE 3 — Visão do Gestor
+  ├── Dashboard individual com cards de metas
+  ├── Modal de lançamento trimestral (valor, memória de cálculo, evidência)
+  ├── Histórico de lançamentos por meta
+  └── Indicador de progresso anual consolidado
+  → Entrega: gestores conseguem usar o sistema do dia a dia
+
+FASE 4 — Visão do Diretor
+  ├── Painel com metas próprias + consolidado dos subordinados diretos
+  ├── Tabela comparativa dos gestores sob sua direção
+  └── Drill-down: clicar num subordinado abre o GoalCard dele (read-only)
+  → Entrega: diretores têm visibilidade de sua área
+
+FASE 5 — Visão CEO (Org Chart)
+  ├── Org chart 2 níveis com nós animados (SVG clip-path)
+  ├── Gamificação: fill progressivo por % de cada nó
+  ├── Painel lateral ao clicar num nó (detalhes do setor)
+  └── Materialized view no Postgres alimentando o consolidado
+  → Entrega: CEO tem visão gamificada da empresa inteira
+
+FASE 6 — Polimento e Observabilidade
+  ├── Integração Sentry
+  ├── Notificações: alerta quando meta está abaixo de X% no trimestre
+  ├── Exportação PDF do painel do CEO
+  └── Ajustes de acessibilidade e performance (Lighthouse)
+  → Entrega: aplicação pronta para produção
+```
+
+### Critério de "pronto" por fase (Definition of Done)
+- Código no repositório com PR revisado
+- RLS testada manualmente com usuários de roles diferentes
+- Deploy na Vercel sem erros de build
+- Funcionalidade validada com dado real (não mock)
+
+---
+
+## Perguntas respondidas
+
+| Pergunta | Resposta |
+|----------|---------|
+| Modo dark/light? | Light only |
+| Responsividade? | Desktop-first |
+| Fonte? | Inter (padrão shadcn) |
+| Paleta? | #F18213 (laranja), #364B59 (navy), cinza neutro |
+| Logo? | Elipse Estaleiro Mauá (laranja + azul) |
+| Escalabilidade? | Não prioritária — usuários internos limitados |
+| Marcello Romullo duplo papel? | Sim, acumula Diretor RH e Gerente RH |
+| Cargos "Em aberto"? | Exibir como nós vazios/cinza no organograma |
+| Níveis no org chart do CEO? | Apenas 2 níveis (CEO → subordinados diretos) |
+| Outros diretores além de Marcelo Arantes? | Sim — ver organograma completo acima |
+
+---
+
+## Fase 0 — Concluída em 2026-06-08
+
+### O que foi feito
+
+| Item | Status | Detalhe |
+|------|--------|---------|
+| Projeto Next.js 16 + Tailwind v4 + shadcn/ui 4.11 | ✅ | `MetasMaua2026/metas-maua/` |
+| Tokens de design Mauá no CSS (Tailwind v4 CSS-first) | ✅ | `app/globals.css` — sem tailwind.config.ts |
+| shadcn/ui inicializado com tema Mauá | ✅ | `:root` sobrescrito com paleta da marca |
+| Dependências: Supabase SSR, TanStack Query, clsx, tw-merge | ✅ | `package.json` |
+| Estrutura de pastas: types/, lib/supabase/, supabase/migrations/ | ✅ | — |
+| Middleware de auth + validação de domínio | ✅ | `middleware.ts` + `lib/supabase/middleware.ts` |
+| `.env.local` configurado | ✅ | URL e anon key do projeto |
+| `.env.example` documentado | ✅ | Para onboarding de novos devs |
+| Projeto Supabase criado (sa-east-1 / São Paulo) | ✅ | ID: `hkguphmtiwwjjnadnbdq` |
+| Migration: enums, tabelas, índices, triggers | ✅ | `20260608_initial_schema.sql` |
+| Migration: RLS policies, materialized view | ✅ | `20260608_rls_and_views.sql` |
+| Seed: 23 departamentos da hierarquia Mauá | ✅ | `seed_departments_hierarchy` |
+| Helpers utilitários: goalColor, calcProgress, formatGoalValue | ✅ | `lib/utils.ts` |
+| Tipos TypeScript completos | ✅ | `types/index.ts` |
+
+### Decisões técnicas tomadas na Fase 0
+
+- **Next.js 16** (não 15 como planejado) — `create-next-app` instalou a versão mais recente; sem breaking changes relevantes para o projeto
+- **Tailwind v4** — configuração CSS-first (sem `tailwind.config.ts`); tokens definidos via `@theme` no `globals.css`
+- **shadcn/ui 4.11** — suporte nativo ao Tailwind v4; tema shadcn sobrescrito com paleta Mauá no bloco `:root`
+- **Projeto Vera pausado** para liberar slot no plano gratuito do Supabase
+- **Região Supabase: sa-east-1** (São Paulo) — menor latência para usuários brasileiros
+- **profiles** em vez de `users` — padrão Supabase para estender `auth.users` sem conflito
+- **Materialized view `department_progress`** — atualizada por trigger a cada INSERT/UPDATE/DELETE em `goals`
+- **Tabela `role_config`** — mapeia padrão de e-mail → role/departamento para o setup inicial de usuários
+
+### Credenciais do projeto Supabase
+- **URL:** `https://hkguphmtiwwjjnadnbdq.supabase.co`
+- **Project ID:** `hkguphmtiwwjjnadnbdq`
+- **Região:** sa-east-1 (São Paulo)
+- **Service Role Key:** obter em Settings > API do dashboard
+
+---
+
+## Fase 1 — Concluída em 2026-06-08
+
+### Credenciais Google OAuth configuradas
+- **Client ID:** `550727946081-f67l0ll6rknhb12huic11mdjpfb8vl1k.apps.googleusercontent.com`
+- **Client Secret:** configurado no Supabase (não versionado)
+- **Repositório GitHub:** https://github.com/luanagcouto-eng/estaleiromaua.git
+
+### O que foi feito
+
+| Item | Arquivo |
+|------|---------|
+| Rota OAuth callback | `app/auth/callback/route.ts` |
+| Página de erro de auth | `app/auth/error/page.tsx` |
+| Página de login (server) | `app/login/page.tsx` |
+| Componente login com Google | `components/auth/login-card.tsx` |
+| Layout autenticado + guard | `app/(authenticated)/layout.tsx` |
+| Sidebar navy com nav por role | `components/layout/app-sidebar.tsx` |
+| Server Action sign-out | `lib/actions/auth.ts` |
+| Redirect por role no dashboard | `app/(authenticated)/dashboard/page.tsx` |
+| Páginas stub: overview, my-goals, team, admin/* | criadas como placeholder Fase 2–5 |
+| Logo SVG placeholder | `public/logo-maua.svg` |
+| Commit e push para GitHub | branch `master` |
+
+### Decisões técnicas tomadas na Fase 1
+- `(authenticated)` como Route Group do Next.js — não aparece na URL, agrupa proteção num único layout
+- Middleware verifica domínio `@estaleiromaua.ind.br` em **todas** as rotas não públicas antes de chegar ao app
+- `signOut()` é um **Server Action** — evita exposição de lógica de auth no client
+- Sidebar mostra e-mail em vez de role label no rodapé — mais informativo para o usuário
+- Logo usa SVG placeholder; substituir por `logo-maua.png` basta sobrescrever `/public/logo-maua.svg` ou mudar o `src`
+
+### Deploy na Vercel — Concluído em 2026-06-08
+- **URL de produção:** https://estaleiromaua-git-main-luana-gfc-outo-s-projects.vercel.app
+- **Repositório:** https://github.com/luanagcouto-eng/estaleiromaua (branch `main`)
+- Variáveis de ambiente configuradas na Vercel
+- Supabase Redirect URL atualizado
+- Google Cloud Console atualizado
+
+### Próximo passo: Fase 2
+- [ ] Construir página de configuração de metas (Admin)
+- [ ] Gestão de usuários e atribuição de roles
+- [ ] Atribuição de peso e superior imediato por meta
+
+## Fase 2 — Concluída em 2026-06-08
+
+### O que foi feito
+
+| Item | Arquivo |
+|------|---------|
+| Schema de validação de metas (Zod) | `lib/schemas/goal.ts` |
+| Schema de validação de usuário (Zod) | `lib/schemas/user.ts` |
+| Server Actions de metas (CRUD + resumo de peso) | `lib/actions/goals.ts` |
+| Server Action de atualização de perfil | `lib/actions/users.ts` |
+| Componente Form (shadcn, criado manualmente) | `components/ui/form.tsx` |
+| Indicador visual de peso total por gestor | `app/(authenticated)/admin/_components/weight-indicator.tsx` |
+| Dialog de criação/edição de meta | `app/(authenticated)/admin/_components/goal-form-dialog.tsx` |
+| Tabela de metas com ações de editar/excluir | `app/(authenticated)/admin/_components/goals-table.tsx` |
+| Dialog de edição de usuário (role/depto/superior) | `app/(authenticated)/admin/_components/user-edit-dialog.tsx` |
+| Tabela de usuários com badges de role | `app/(authenticated)/admin/_components/users-table.tsx` |
+| Página Admin → Configuração de Metas | `app/(authenticated)/admin/goals/page.tsx` |
+| Página Admin → Gestão de Usuários | `app/(authenticated)/admin/users/page.tsx` |
+| Componentes shadcn adicionados | `table`, `dialog`, `select`, `label`, `textarea`, `form` |
+| Dependências instaladas | `react-hook-form`, `@hookform/resolvers`, `zod`, `sonner`, `@radix-ui/react-label`, `@radix-ui/react-slot` |
+| Toaster global (sonner) | `app/layout.tsx` |
+| Commit e push para GitHub | branch `main` |
+
+### Decisões técnicas tomadas na Fase 2
+- Validação de formulários com **React Hook Form + Zod** via `zodResolver`, com feedback de erro inline em cada campo
+- **Indicador de peso por gestor**: barra visual que soma o peso das metas já atribuídas + a meta em edição, sinalizando quando o total se aproxima ou ultrapassa 100% — orienta o admin sem bloquear o salvamento (regra de negócio fica a critério humano)
+- Schema de metas usa `z.number()` (não `z.coerce.number()`): os campos numéricos (`peso`, `meta`) já chegam convertidos via `field.onChange(parseFloat(...))` no input — evita o conflito de tipos `input` vs `output` do Zod v4 com o `Resolver` do react-hook-form
+- Página de usuários normaliza relações aninhadas do Supabase (`department`, `superior`) de array para objeto único — o PostgREST sempre retorna relações como array, mesmo em FKs 1:1
+- `components/ui/form.tsx` foi criado manualmente seguindo o padrão shadcn/ui, pois o CLI (`npx shadcn@latest add form`) falhou silenciosamente ao gerar o arquivo
+- Toda mutação (criar/editar/excluir meta, atualizar perfil) é uma **Server Action** — mantém a lógica de escrita no servidor e aciona `revalidatePath` para refletir mudanças imediatamente
+
+### Erros corrigidos durante a Fase 2
+- `Cannot find module '@/components/ui/form'` → criado manualmente
+- `'invalid_type_error' does not exist` (API removida no Zod v4) → trocado por `z.number("mensagem")`
+- Tipo `{ department: {...}[] }` incompatível com `UserRow[]` → normalização de array para objeto único na query de usuários
+- Conflito de tipos `Resolver<weight: unknown>` vs `Resolver<weight: number>` (Zod v4 + `@hookform/resolvers`) → revertido de `z.coerce.number()` para `z.number()`, já que a coerção manual no `onChange` torna a coerção do schema redundante
+- `Cannot find module '@radix-ui/react-label'` / `'@radix-ui/react-slot'` → dependências instaladas via `npm install`
+
+### Validação
+- `npx tsc --noEmit` — sem erros
+- `npm run build` — build de produção concluído com sucesso (13 rotas geradas)
+
+### Próximo passo: Fase 3
+- [ ] Página CEO — visão geral com organograma gamificado (preenchimento visual por % de meta atingida)
+- [ ] Materialized view `department_progress` consumida no dashboard
+- [ ] Lógica de cores de gamificação (`goalColor`) aplicada ao organograma
