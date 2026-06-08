@@ -474,3 +474,34 @@ FASE 6 — Polimento e Observabilidade
 - [ ] Modal de lançamento trimestral (valor, memória de cálculo, evidência)
 - [ ] Histórico de lançamentos por meta
 - [ ] Indicador de progresso anual consolidado
+
+## Manutenção — Correção do deploy na Vercel e erro de avatar (2026-06-08)
+
+### Contexto
+Antes de seguir para a próxima fase, o usuário reportou falha em todos os deployments de produção do projeto `estaleiromaua` (time `luanagcouto-2081s-projects`) e um erro em tempo de execução na tela após o login.
+
+### Diagnóstico e correções — Vercel
+| Problema encontrado | Causa | Correção |
+|---|---|---|
+| Todos os deploys falhavam em ~150–650ms (incluindo os de 42–48 dias atrás) | Projeto configurado com `Root Directory = "index.html"` e `Framework Preset = "Other"` — provavelmente resquício de uma configuração inicial equivocada | Corrigido via chamada direta à **API REST da Vercel** (`PATCH /v9/projects/{id}`), já que a CLI não expõe edição dessas configurações: `framework: "nextjs"`. **Atenção**: a 1ª tentativa setou `rootDirectory: "MetasMaua2026/metas-maua"`, mas o deploy seguinte falhou com `"Root Directory ... does not exist"` — o repositório GitHub `estaleiromaua` tem o conteúdo do projeto Next.js na **raiz** (não aninhado em `MetasMaua2026/`). Corrigido na 2ª tentativa com `rootDirectory: null` (raiz do repo) |
+| Projeto sem nenhuma variável de ambiente configurada | `lib/supabase/{client,server,middleware}.ts` dependem de `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` em runtime | Adicionadas via `vercel env add` para os 3 ambientes (Production, Preview, Development); para Preview foi necessário usar `--value <valor> --yes` para evitar o prompt interativo de seleção de branch git |
+
+> **Nota:** existem múltiplos projetos `estaleiromaua*` (e variantes com sufixo aleatório) no time `luanagcouto-2081s-projects`. O projeto corrigido foi `estaleiromaua` (`prj_tGEJU1hul06zy1roPmAIcTkfxs2t`). Vale uma limpeza futura para remover projetos órfãos/duplicados.
+
+### Correção — erro de avatar do Google (`next/image`)
+- **Erro**: `Invalid src prop (https://lh3.googleusercontent.com/...) on next/image, hostname "lh3.googleusercontent.com" is not configured under images in your next.config.js`, disparado em `components/layout/app-sidebar.tsx` ao renderizar a foto de perfil vinda do login OAuth do Google
+- **Correção**: adicionado `images.remotePatterns` em `next.config.ts` liberando o host `lh3.googleusercontent.com` (padrão de URLs de avatar do Google)
+
+```ts
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "lh3.googleusercontent.com" }],
+  },
+};
+```
+
+### Validação
+- Processos zumbis do `next dev` (portas 3000/3001) finalizados, cache `.next` removido e servidor reiniciado limpo com `npx next dev --webpack -p 3000` (workaround do panic do Turbopack com o caractere "Á" no caminho, já documentado na Fase 3) — `/login` responde HTTP 200
+- Commit `fix: configurar hostname do Google avatar no next/image` enviado para `main`
+- Deploy de produção disparado manualmente via `npx vercel --prod` após a correção do `rootDirectory` — **build concluído com sucesso (`READY`)** em ~59s, publicado em `https://estaleiromaua.vercel.app` (alias) — `/login` responde HTTP 200 ✅
+- Aplicação acessível localmente em **http://localhost:3000** e em produção em **https://estaleiromaua.vercel.app**
