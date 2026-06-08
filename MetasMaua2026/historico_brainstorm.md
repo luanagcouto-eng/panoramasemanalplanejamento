@@ -558,3 +558,33 @@ Coincidentemente, o shadcn já define `--muted-foreground: #6B7280` — exatamen
 - `npx tsc --noEmit` — sem erros
 - `npm run build` — build de produção concluído com sucesso, todas as 13 rotas geradas
 - Conferido o CSS compilado servido pelo dev server: `.text-muted-foreground { color: var(--muted-foreground) }` e `--muted-foreground: #6B7280` — contraste correto confirmado
+
+---
+
+## Fase 5 — Minha Equipe (visão do gestor sobre subordinados) — Concluída em 2026-06-08
+
+### O que foi feito
+
+| Item | Arquivo |
+|------|---------|
+| Novas políticas RLS — gestores podem ver metas/histórico dos subordinados diretos | migração `add_manager_team_select_policies` (Supabase) |
+| Componente `TeamMemberCard` — card do colaborador com progresso consolidado, lista expansível de metas e ação "Cobrar lançamento" | `app/(authenticated)/team/_components/team-member-card.tsx` |
+| Página "Minha Equipe" reescrita — lista os subordinados diretos com indicadores de progresso | `app/(authenticated)/team/page.tsx` |
+
+### Decisões técnicas tomadas na Fase 5
+- **Políticas RLS por papel, espelhando as de `director`**: a política `goals_manager_select` original restringia o gestor a `owner_id = auth.uid()` (só as próprias metas). Foram criadas `goals_manager_select_team` e `goal_history_manager_select_team`, usando a função já existente `get_subordinate_ids(auth.uid())` para liberar leitura das metas e do histórico dos subordinados diretos — sem alterar as políticas existentes (políticas de SELECT são combinadas com OR no Postgres)
+- **Subordinados diretos via `profiles.superior_id = auth.uid()`**: como a política `profiles_select_authenticated` já libera leitura de todos os perfis para usuários autenticados, a consulta direta dispensou uma chamada RPC
+- **"Sem lançamento" calculado por presença em `goal_history`**: para cada meta do subordinado, verifica-se se existe ao menos um registro em `goal_history` — se não houver, a meta recebe o badge "Sem lançamento" e entra na contagem do botão "Cobrar lançamento"
+- **"Cobrar lançamento" como link `mailto:`**: gera um e-mail pré-preenchido (assunto + corpo listando as metas pendentes) para o endereço do subordinado — solução leve que não exige sistema de notificações/e-mail transacional nesta fase
+- **Reaproveitamento total dos utilitários e padrões visuais de gamificação** (`goalColor`, `goalTextClass`, `calcProgress`, `formatGoalValue`, badges de período) — mesma identidade visual das telas "Visão Geral" e "Minhas Metas"
+- **Cálculo do indicador consolidado replicado em JS** (igual à Fase 4): `Σ (atual/meta × peso) / Σ peso` sobre as metas `2026-ANUAL` de cada subordinado
+
+### Validação
+- Criada rota temporária `/dev-preview/team` (whitelisted no middleware) com 4 colaboradores mockados cobrindo as faixas de progresso 96% 🏆, 65%, 28% e 0% (sem metas) e metas com/sem lançamento — confirmado via HTML renderizado: badges de percentual, troféu (≥ 90%), badge "Sem lançamento" e botão "Cobrar lançamento (N)" presentes e corretos. Rota e whitelist removidas após validação
+- `npx tsc --noEmit` — sem erros
+- `npm run build` — build de produção concluído com sucesso, 13 rotas geradas
+- Confirmado no banco: única conta com papel de gestor (a própria usuária) não possui subordinados diretos cadastrados — a tela exibe corretamente o estado vazio "Você ainda não possui subordinados diretos cadastrados"
+
+### Próximo passo
+- Cadastrar subordinados reais (Admin → Usuários, vinculando `superior_id`) para validar o fluxo de ponta a ponta em produção
+- Considerar evoluir "Cobrar lançamento" para notificação in-app ou e-mail transacional, caso o `mailto:` se mostre insuficiente no uso real
