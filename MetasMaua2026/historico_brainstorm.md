@@ -505,3 +505,35 @@ const nextConfig: NextConfig = {
 - Commit `fix: configurar hostname do Google avatar no next/image` enviado para `main`
 - Deploy de produção disparado manualmente via `npx vercel --prod` após a correção do `rootDirectory` — **build concluído com sucesso (`READY`)** em ~59s, publicado em `https://estaleiromaua.vercel.app` (alias) — `/login` responde HTTP 200 ✅
 - Aplicação acessível localmente em **http://localhost:3000** e em produção em **https://estaleiromaua.vercel.app**
+
+## Fase 4 — Visão do Gestor (Minhas Metas) — Concluída em 2026-06-08
+
+### O que foi feito
+
+| Item | Arquivo |
+|------|---------|
+| Schema Zod do lançamento de resultado (`value`, `notes`/memória de cálculo, `evidence_url`) | `lib/schemas/goal-entry.ts` |
+| Server Action `createGoalEntry` — grava em `goal_history` e atualiza `goals.current_value` | `lib/actions/goal-history.ts` |
+| Componente `GoalCard` — card de meta com barra de progresso gamificada, badges de período/peso e ações | `app/(authenticated)/my-goals/_components/goal-card.tsx` |
+| Componente `GoalEntryDialog` — modal de lançamento (Form + Zod + Server Action) | `app/(authenticated)/my-goals/_components/goal-entry-dialog.tsx` |
+| Componente `GoalHistoryList` — lista expansível de lançamentos anteriores por meta | `app/(authenticated)/my-goals/_components/goal-history-list.tsx` |
+| Página "Minhas Metas" reescrita — dashboard do gestor com indicador consolidado + cards | `app/(authenticated)/my-goals/page.tsx` |
+
+### Decisões técnicas tomadas na Fase 4
+- **Lançamento = novo registro em `goal_history` + atualização de `goals.current_value`**: cada lançamento trimestral grava uma linha de histórico (valor, memória de cálculo, evidência, autor, data) e sobrescreve o valor atual da meta — preserva o rastro de apurações anteriores sem precisar de lógica adicional de agregação
+- **Evidência como URL** (não upload de arquivo): o campo `evidence_url` aceita um link para um arquivo já compartilhado (Drive, SharePoint, etc.) — evita a necessidade de configurar um bucket de Storage no Supabase nesta fase; pode evoluir para upload nativo se o usuário pedir
+- **Indicador consolidado calculado na página** (não em view): como a página já busca todas as metas do gestor, o percentual ponderado das metas anuais (`Σ (atual/meta × peso) / Σ peso`) é calculado em JS — replica a mesma fórmula usada nas views `org_chart_progress`/`company_progress`, mas sem round-trip extra ao banco
+- **Histórico expansível inline** (toggle por card) em vez de painel lateral — mantém o usuário no contexto da meta, sem abrir um novo `Sheet` por item
+- **Reaproveitamento de utilitários de gamificação** (`goalColor`, `goalTextClass`, `calcProgress`, `formatGoalValue` de `lib/utils.ts`) — mesma lógica visual de cores/troféu (🏆 ≥ 90%) usada no organograma do CEO, garantindo consistência entre as telas
+- Todas as metas do usuário (`period LIKE '2026%'`) aparecem como cards, mas apenas as de período `2026-ANUAL` entram no cálculo do indicador consolidado e exibem o peso — replicando a regra já usada em `getGoalsWithWeightSummary`
+
+### Validação
+- Criada rota temporária `/dev-preview/my-goals` (whitelisted no middleware) com 5 metas mockadas cobrindo as faixas de 0%, ~44%, ~65%, ~96% e 100% — validado via HTML renderizado: `clip-path`/cores corretos por faixa, troféu exibido apenas em ≥ 90%, indicador consolidado, badges de período/peso e botões "Lançar resultado"/"Ver histórico" presentes. Rota e whitelist removidas após validação
+- `npx tsc --noEmit` — sem erros
+- `npm run build` — build de produção concluído com sucesso (rota `/my-goals` gerada como dinâmica)
+- Confirmadas as políticas RLS no Supabase: `goal_history_insert` permite que o autor (`recorded_by = auth.uid()`) registre lançamentos e `goals_owner_update` permite que o dono da meta atualize `current_value` — a Server Action funciona sem necessidade de novas políticas
+
+### Próximo passo: Minha Equipe (Fase 5 — visão do gestor sobre subordinados)
+- [ ] Lista de metas dos subordinados diretos (via `get_subordinate_ids`)
+- [ ] Indicadores de progresso por colaborador
+- [ ] Possível ação de "cobrar lançamento" para metas atrasadas
