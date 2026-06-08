@@ -440,3 +440,37 @@ FASE 6 — Polimento e Observabilidade
 - [ ] Página CEO — visão geral com organograma gamificado (preenchimento visual por % de meta atingida)
 - [ ] Materialized view `department_progress` consumida no dashboard
 - [ ] Lógica de cores de gamificação (`goalColor`) aplicada ao organograma
+
+> **Nota de reordenação (2026-06-08):** o roadmap original definia a Fase 3 como "Visão do Gestor" e o organograma do CEO como Fase 5. A pedido do usuário, a ordem foi invertida — o painel do CEO foi construído primeiro (registrado abaixo como "Fase 3"). A Visão do Gestor (dashboard individual, lançamento trimestral, histórico) permanece como próxima entrega.
+
+## Fase 3 — Painel do CEO (organograma gamificado) — Concluída em 2026-06-08
+
+### O que foi feito
+
+| Item | Arquivo |
+|------|---------|
+| Views recursivas de progresso por subárvore (`org_chart_progress`) e consolidado da empresa (`company_progress`) | `supabase/migrations/20260608_org_chart_progress.sql` |
+| Componente `OrgNode` — card com fill SVG via `clip-path`, troféu para ≥90% | `app/(authenticated)/overview/_components/org-node.tsx` |
+| Componente `OrgChart` — layout de 2 níveis com conectores CSS e seleção de nó | `app/(authenticated)/overview/_components/org-chart.tsx` |
+| Painel lateral de detalhes (`Sheet`) com progresso, metas e subordinadas | `app/(authenticated)/overview/_components/node-detail-sheet.tsx` |
+| Página "Visão Geral" do CEO consumindo as views + legenda de cores | `app/(authenticated)/overview/page.tsx` |
+
+### Decisões técnicas tomadas na Fase 3
+- **Cálculo no banco, não no front**: criadas as views `org_chart_progress` (CTE recursiva que soma o progresso ponderado de cada departamento + todos os seus descendentes) e `company_progress` (consolidado geral da empresa) — o componente apenas exibe o que o Postgres já calculou, conforme decisão de performance registrada no brainstorm
+- **Fill gamificado via `clip-path: inset()`** animado com `transition-[clip-path]` — não usa `height`, conforme decisão de design registrada (mais fluido, funciona em qualquer formato de nó)
+- **Organograma limitado a 2 níveis** (CEO + 5 diretorias de 1º nível, `parent_id IS NULL`): Diretoria de Operações, Diretoria Comercial, Diretoria RH/EHS, Gerência CGQ, Gerência Financeiro — clique em um nó abre o painel lateral com as áreas subordinadas (3º nível) e seus percentuais individuais
+- **Identificação do responsável por nó**: busca em `profiles` por `role IN ('ceo','director')` casado por `department_id`; nós sem responsável são exibidos como "Em aberto" (estilo placeholder, opacidade reduzida) — hoje todos aparecem assim porque ainda não há usuários logados (`profiles` vazia)
+- **Conectores do organograma**: implementados com `div`s posicionados via flex/absolute e bordas (linha vertical do CEO, linha horizontal conectando as 5 diretorias, linhas verticais até cada nó) — sem dependência de bibliotecas externas de diagramas
+- **Acesso restrito**: página redireciona quem não é `ceo`/`admin` para `/dashboard`, replicando o padrão das páginas administrativas
+
+### Validação
+- Criada rota temporária `/dev-preview/org-chart` (whitelisted no middleware) para renderizar o `OrgChart` com dados mockados cobrindo as 5 faixas de percentual (0%, 22%, 45%, 65%, 72%, 95%) — validado visualmente via HTML renderizado: `clip-path` e cores corretos por faixa, troféu exibido apenas em ≥90%, conectores e grid de 5 colunas presentes. Rota e whitelist removidas após validação
+- **Observação de ambiente**: o servidor de dev com Turbopack falha (`panic` no Rust) ao compilar novas rotas neste projeto, por causa do caractere "Á" no caminho da pasta (`OneDrive - Estaleiro Mauá`/`Área de Trabalho`). Contornado rodando `npx next dev --webpack`. Caso o problema persista em fases futuras, considerar mover o projeto para um caminho sem acentuação
+- `npx tsc --noEmit` — sem erros
+- `npm run build` — build de produção concluído com sucesso (13 rotas geradas, incluindo `/overview`)
+
+### Próximo passo: Visão do Gestor (Fase 3 original / próxima entrega)
+- [ ] Dashboard individual do gestor com cards de metas
+- [ ] Modal de lançamento trimestral (valor, memória de cálculo, evidência)
+- [ ] Histórico de lançamentos por meta
+- [ ] Indicador de progresso anual consolidado
