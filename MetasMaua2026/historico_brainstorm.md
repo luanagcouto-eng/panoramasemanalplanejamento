@@ -537,3 +537,24 @@ const nextConfig: NextConfig = {
 - [ ] Lista de metas dos subordinados diretos (via `get_subordinate_ids`)
 - [ ] Indicadores de progresso por colaborador
 - [ ] Possível ação de "cobrar lançamento" para metas atrasadas
+
+---
+
+## Manutenção — Correção de contraste de texto (`text-muted`) em toda a aplicação — 2026-06-08
+
+### Problema
+Após revisar `/my-goals`, percebemos que toda a interface exibia textos secundários (subtítulos, descrições, badges, contadores) quase invisíveis — texto cinza muito claro sobre fundo branco. Não era um problema isolado da Fase 4: afetava **todas** as páginas que usam a classe `text-muted` (login, erro de auth, overview, team, admin/users, admin/goals, my-goals).
+
+### Causa raiz
+Em `app/globals.css`, o token semântico Mauá `--color-muted: var(--color-maua-gray-500)` (definido no bloco `@theme` da marca, pensado para resultar em `#6B7280`) era **sobrescrito** pelo bloco `@theme inline` gerado pelo shadcn logo abaixo, que redefine `--color-muted: var(--muted)` → `#F8F9FA` (quase branco). Em CSS, a declaração que aparece por último na cascata vence — então toda classe `text-muted`/`bg-muted` da aplicação resolvia para a cor de fundo "muted" do shadcn (clara), não para o tom de texto secundário da marca (`gray-500`).
+Coincidentemente, o shadcn já define `--muted-foreground: #6B7280` — exatamente o tom que a marca Mauá pretendia para texto secundário.
+
+### Correção
+- Removida a declaração órfã `--color-muted: var(--color-maua-gray-500)` do bloco `@theme` da marca em `app/globals.css` (estava sempre sendo sobrescrita; mantê-la só confundiria futuras investigações)
+- Substituída a classe `text-muted` por `text-muted-foreground` em todos os arquivos da aplicação (≈ 34 ocorrências em 17 arquivos: páginas de `overview`, `team`, `admin`, `my-goals`, `auth/error`, `login-card` e os novos componentes da Fase 4) — `text-muted-foreground` já resolve corretamente para `#6B7280`, sem necessidade de criar um novo token
+- `bg-muted`/`text-muted-foreground` usados internamente pelos componentes shadcn (`badge`, `button`, `table`, `dialog`, `skeleton`, `avatar`) **não foram alterados** — eles já usavam os nomes corretos e dependem do tom claro (`#F8F9FA`) para hover/fundo
+
+### Validação
+- `npx tsc --noEmit` — sem erros
+- `npm run build` — build de produção concluído com sucesso, todas as 13 rotas geradas
+- Conferido o CSS compilado servido pelo dev server: `.text-muted-foreground { color: var(--muted-foreground) }` e `--muted-foreground: #6B7280` — contraste correto confirmado
