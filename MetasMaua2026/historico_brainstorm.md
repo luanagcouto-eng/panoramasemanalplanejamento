@@ -840,6 +840,16 @@ O formulário de e-mail/senha do HTML de referência é um protótipo visual (au
 - Commit: `a20ba0d`
 - **Dropdown Departamento simplificado** (commit `cf6a21c`): removida coluna "setor" ao lado do nome; exibe apenas `d.name`
 
+### Fix — Seleção de departamento + tipografia — 2026-06-09
+
+**Problema 1 — Validação falsa no Select Departamento:**
+Passar `children` ao `<SelectValue>` do Radix UI usa um caminho de renderização alternativo que não atualiza o contexto interno de seleção do componente. Resultado: a exibição mostrava o nome, mas `field.value` não era atualizado — `z.string().uuid()` falhava na submissão. Correção: `<SelectValue placeholder="..." />` simples, sem children; Radix resolve o display pelo `textValue` do `<SelectItem>` automaticamente.
+
+**Problema 2 — Tipografia:**
+Regra do design system: Inter (padrão shadcn/ui) em toda a aplicação, inclusive login. Montserrat foi removido de `layout.tsx` e de `login-card.tsx` (inline `fontFamily`). Toda a app herda Inter pelo `inter.className` no `<html>`.
+
+- Commit: `60776d1`
+
 ### Redesign "Minhas Metas" — layout executivo — 2026-06-09
 
 **Solicitação:** Seguir padrão do Painel_Integrado_Maua.html: KPI cards no topo + tabela consolidada + linhas expansíveis com detalhamento.
