@@ -1568,3 +1568,53 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 | DB migration | `profile_departments` junction table |
 
 - TypeScript: zero erros
+
+---
+
+## Sessão 11 — 2026-06-09
+
+### Requisitos implementados
+
+1. **Ordenação de colunas em `/admin/goals`**
+2. **Filtro por Responsável e Título em `/admin/goals`**
+3. **Correção da visibilidade do campo Meta com unidade "horas"**
+4. **Operador `=` (igual a) no formulário de metas**
+
+---
+
+### 1 e 2. Filtros e ordenação — `goals-table.tsx`
+
+**Filtros:**
+- Input de texto "Buscar por título..." (substring case-insensitive)
+- Select "Todos os responsáveis" populado dinamicamente com owners únicos das metas
+- Botão "✕ Limpar" visível somente quando há filtro ativo
+- Contador "N de Total metas" no topo direito
+
+**Ordenação:**
+- Colunas clicáveis: Título, Responsável, Departamento, Período, Meta, Peso, Progresso
+- `SortArrow` component inline: `↕` (neutro em cinza), `↑`/`↓` (ativo em laranja)
+- Toggle: mesmo clique alterna asc/desc; nova coluna reseta para asc
+- `useMemo` para processedGoals (filter + sort em passo único)
+
+### 3. Visibilidade do campo Meta
+
+**Problema:** `<input type="number">` renderiza com spinners de incremento nativos do browser; em colunas estreitas (grid 4 colunas) esses spinners cobriam o valor digitado.
+
+**Solução:** Adicionado `className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"` ao Input `target_value` — remove spinners em todos os browsers, liberando o espaço para o número.
+
+### 4. Operador `=`
+
+- `lib/schemas/goal.ts`: `z.enum([">=", ">", "<=", "<", "="])`
+- `goal-form-dialog.tsx`: `OP_SYMBOL["="] = "="` + `<SelectItem value="=">= igual a</SelectItem>`
+- `goals-table.tsx`, `goal-card.tsx`, `goals-executive-table.tsx`: `OP_SYMBOL["="] = "="`
+- Sem migração de DB necessária (coluna `operator` é `text`)
+
+| Arquivo | Mudança |
+|---------|---------|
+| `lib/schemas/goal.ts` | Enum operador + "=" |
+| `admin/_components/goal-form-dialog.tsx` | OP_SYMBOL, SelectItem, Input sem spinner |
+| `admin/_components/goals-table.tsx` | Filtros + ordenação + OP_SYMBOL |
+| `my-goals/_components/goal-card.tsx` | OP_SYMBOL |
+| `my-goals/_components/goals-executive-table.tsx` | OP_SYMBOL |
+
+- TypeScript: zero erros
