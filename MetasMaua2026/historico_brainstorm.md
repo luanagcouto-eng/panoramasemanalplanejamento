@@ -831,3 +831,20 @@ O formulário de e-mail/senha do HTML de referência é um protótipo visual (au
   - `workspace root` inferido incorretamente (múltiplos `package-lock.json` no sistema — ignorar)
   - `"middleware"` deprecated → usar `"proxy"` (aviso do Next.js 16 interno — não afeta comportamento)
 - Commit: `10896d6` → deploy automático no Vercel via push `main`
+
+### Fix — Dialog "Nova Meta" (admin/goals) — 2026-06-09
+
+**Problema reportado:** Campos Responsável e Departamento exibiam UUIDs truncados em vez dos nomes; diálogo pequeno demais.
+
+**Causas:**
+1. Layout `grid grid-cols-2` colocava Responsável e Departamento lado a lado (~230px cada), sem espaço suficiente para o nome
+2. `SelectValue` do shadcn/ui exibia o `value` bruto (UUID) quando o `SelectContent` (portal) ainda não havia montado na primeira renderização
+
+**Correções aplicadas em `goal-form-dialog.tsx`:**
+- `max-w-lg` → `max-w-xl` para o dialog
+- Responsável e Departamento movidos para linhas independentes (largura total)
+- `SelectValue` com lookup explícito (`profiles.find(p => p.id === field.value)?.name`) para garantir exibição do nome independente do ciclo de vida do portal
+- Dropdown de Responsável mostra nome + e-mail; de Departamento mostra nome + setor
+- Grid Período/Meta/Unidade ajustado para `grid-cols-[1fr_1.5fr_1fr]`
+- Build: sucesso (9,8 s compile, TypeScript OK, 15 rotas)
+- Commit: `83172ab`
