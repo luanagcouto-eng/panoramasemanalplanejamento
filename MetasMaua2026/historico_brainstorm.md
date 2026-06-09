@@ -840,6 +840,25 @@ O formulário de e-mail/senha do HTML de referência é um protótipo visual (au
 - Commit: `a20ba0d`
 - **Dropdown Departamento simplificado** (commit `cf6a21c`): removida coluna "setor" ao lado do nome; exibe apenas `d.name`
 
+### Redesign "Minhas Metas" — layout executivo — 2026-06-09
+
+**Solicitação:** Seguir padrão do Painel_Integrado_Maua.html: KPI cards no topo + tabela consolidada + linhas expansíveis com detalhamento.
+
+**Novo arquivo:** `app/(authenticated)/my-goals/_components/goals-executive-table.tsx`
+
+**Layout implementado:**
+1. **KPI Cards** — uma card por meta, row horizontal com scroll; exibe título (caps pequeno), percentual colorido, barra de progresso. Paleta: verde ≥90%, laranja ≥60%, vermelho <60%
+2. **Tabelas por período** — uma seção por período (ANUAL / Q1-Q4), header dark `#364B59`, sub-header `#2D3F4A`
+   - Colunas: Objetivo Estratégico | Subpeso | Meta | Atingimento (%) | Avaliação Técnica
+   - Status badges: PENDENTE (sem histórico) / EM ANDAMENTO (60-89%) / EM CONFORMIDADE (≥90%) / EM RISCO (<60%)
+3. **Linha expansível** — click na linha → abre painel inline com histórico de lançamentos + botão "Lançar resultado"
+4. GoalAlertsPanel mantido acima das tabelas
+5. Removido: progress bar consolidado antigo, cards individuais (GoalCard)
+
+**page.tsx** simplificado: passa `goalCards[]` para `<GoalsExecutiveTable>`
+- Build: sucesso (15,7s TypeScript, 15 rotas)
+- Commit: `0eeb134`
+
 ### Fix — Dialog "Nova Meta" (admin/goals) — 2026-06-09
 
 **Problema reportado:** Campos Responsável e Departamento exibiam UUIDs truncados em vez dos nomes; diálogo pequeno demais.
