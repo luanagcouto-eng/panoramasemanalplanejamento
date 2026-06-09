@@ -850,6 +850,38 @@ Regra do design system: Inter (padrão shadcn/ui) em toda a aplicação, inclusi
 
 - Commit: `60776d1`
 
+### Gestão de Usuários + Permissões por Role — 2026-06-09
+
+**Problemas reportados:**
+1. Impossível criar/adicionar usuários — não havia botão/fluxo de criação
+2. Lista de usuários exibia "Nenhum usuário cadastrado" mesmo com 13 perfis no banco
+3. Permissões de navegação não refletiam a hierarquia desejada por role
+
+**Causa raiz do item 2:**
+Query do Supabase usava PostgREST self-join `superior:profiles!superior_id(...)` que falha silenciosamente em alguns cenários, retornando `data: null`. Corrigido fazendo queries separadas (profiles + departments) e juntando em código JS.
+
+**Criação de usuários (novo fluxo):**
+- Botão "+ Novo Usuário" na tabela de admin
+- `UserCreateDialog`: nome, e-mail, role, departamento, superior → cria perfil com `is_placeholder=true`
+- `createUserProfile` server action (valida com `userCreateSchema`)
+- Status badge na tabela: `Ativo` (verde) ou `Pendente login` (âmbar)
+- Quando o colaborador fizer 1º login via Google: trigger `handle_new_user` herda automaticamente role/dept/superior do placeholder e converte para perfil real
+
+**Migração Supabase (`claim_placeholder_on_signup_and_admin_insert`):**
+- `handle_new_user` atualizado: ao criar auth.users, busca placeholder com mesmo e-mail; se encontrado, migra todas as referências (superior_id, goals.owner_id) e converte para perfil real
+- Nova policy `profiles_ceo_all`: CEO pode INSERT/UPDATE/DELETE perfis (espelho da policy admin)
+
+**Permissões de navegação:**
+
+| Role | Páginas visíveis |
+|---|---|
+| CEO | Visão Geral · Minha Equipe · Relatórios |
+| Diretor | Visão Geral · Minhas Metas · Minha Equipe · Relatórios |
+| Gestor | Visão Geral · Minhas Metas |
+| Admin | Todas (incluindo admin/users, admin/goals, admin/audit) |
+
+- Commit: `24f70a0`
+
 ### Redesign "Minhas Metas" — layout executivo — 2026-06-09
 
 **Solicitação:** Seguir padrão do Painel_Integrado_Maua.html: KPI cards no topo + tabela consolidada + linhas expansíveis com detalhamento.
