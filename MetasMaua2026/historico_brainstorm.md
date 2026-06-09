@@ -972,3 +972,30 @@ Duas migrações distintas criaram funções de audit com schemas diferentes par
 - Migration `fix_log_goal_history_change_entity_type`: CREATE OR REPLACE FUNCTION `log_goal_history_change()` removendo `entity_type`, incorporando o tipo na string de `action` (`INSERT_GOAL_HISTORY`, etc.)
 
 **Resultado:** goals INSERT/UPDATE/DELETE funcionando; lançamento de resultados em goal_history funcionando; audit_log gravando corretamente via `audit_goals_change`.
+
+### Reestruturação do menu "Metas" em sub-menus — 2026-06-09
+
+**Solicitação:** Criar 2 sub-menus dentro de "Metas":
+1. **Atualização de Metas** — todos os roles; obrigatoriedade de upload de evidência
+2. **Criação de Metas** — somente Admin; formulário Nova Meta já existente
+
+**Arquivos alterados:**
+
+| Arquivo | Mudança |
+|---------|---------|
+| `components/layout/app-sidebar.tsx` | Removido item "Minhas Metas" standalone; adicionado `NavItem` com `children[]` para "Metas"; sub-itens "Atualização de Metas" (`/my-goals`, todos os roles) e "Criação de Metas" (`/admin/goals`, admin only). Rótulo do grupo não é link — sub-itens indentados com `pl-11`. Role label no rodapé da sidebar exibido corretamente. |
+| `lib/schemas/goal-entry.ts` | `evidence_url`: removido `.optional().or(z.literal(""))` → agora `.min(1).url()` — campo obrigatório |
+| `app/(authenticated)/my-goals/_components/goal-entry-dialog.tsx` | Label "Evidência (obrigatória)" em vermelho; upload como ação principal com ícone 📎; feedback ✓ + nome do arquivo após upload bem-sucedido; URL como campo alternativo (sem duplo FormDescription) |
+| `app/(authenticated)/my-goals/page.tsx` | Título/metadata: "Minhas Metas" → "Atualização de Metas" |
+
+**Permissões de navegação atualizadas:**
+
+| Role | Páginas visíveis |
+|---|---|
+| CEO | Visão Geral · Minha Equipe · Relatórios · Metas > Atualização |
+| Diretor | Visão Geral · Minha Equipe · Relatórios · Metas > Atualização |
+| Gestor | Visão Geral · Metas > Atualização |
+| Admin | Visão Geral · Minha Equipe · Relatórios · Metas > Atualização + Criação · Usuários · Auditoria |
+
+- Build: sucesso (14,3 s compile, TypeScript OK, 15 rotas)
+- Commit: `d3e6a31`
