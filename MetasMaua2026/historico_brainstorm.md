@@ -1372,3 +1372,199 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - Build: sucesso (TypeScript OK, 16 rotas)
 - Commit: `05aeb21`
+
+---
+
+## Sessão 8 — 2026-06-09
+
+### Requisito: Setores na hierarquia de departamentos
+
+**Objetivo**: Exibir setores (nível 3 da hierarquia) em:
+1. Configuração de metas (`/admin/goals`) — dropdown hierárquico + caminho no table
+2. Detalhamento da visão geral (`/overview`) — setores listados sob cada área subordinada no painel lateral
+
+---
+
+### Migração de banco de dados
+
+**Renomeações:**
+| ID | Nome anterior | Nome novo |
+|----|--------------|-----------|
+| `00000001-...-002` | Diretoria RH / EHS | Diretoria RH / QSMS |
+| `00000001-...-004` | Gerência CGQ | Gerência GGCQ |
+| `00000002-...-005` | Gerência Contratos | Gerência de Contratos de Obra |
+| `00000002-...-007` | Gerência EHS | Gerência de QSMS |
+| `00000002-...-012` | CGQ | Qualidade |
+
+**Reestruturação Comercial:**
+- Criado `00000002-...-014` = "Comercial" (nível 2 sob Diretoria Comercial)
+- Re-parent: Comercial Orçamento → "Orçamento", Comercial Vendas → "Vendas", Gerência TI → "IT" (todos para nível 3 sob novo Comercial)
+
+**Novos setores (nível 3 sob gerências):**
+- Produção (sob Gerência Produção)
+- Manutenção (sob Gerência Manutenção)
+- Contratos (sob Gerência de Contratos de Obra)
+- RH (sob Gerência RH)
+- QSMS (sob Gerência de QSMS)
+
+**Novos setores (nível 2 direto sob gestões que não têm gerência intermediária):**
+- Financeiro (`00000002-...-015`) sob Gerência Financeiro
+- Governança (`00000002-...-016`) sob Gerência GGCQ
+
+---
+
+### Alterações de UI
+
+**`app/(authenticated)/admin/goals/page.tsx`**:
+- Adicionado `parent_id` ao select de departamentos
+
+**`app/(authenticated)/admin/_components/goal-form-dialog.tsx`**:
+- Interface `Department` inclui `parent_id`
+- Dropdown "Departamento / Setor" agora hierárquico via `useMemo` → `addChildren` recursivo
+- Nível 0: negrito, sem prefixo | Nível 1: `pl-7`, prefixo "↳ " | Nível 2: `pl-11`, prefixo "  ↳ "
+
+**`app/(authenticated)/admin/_components/goals-table.tsx`**:
+- Interface `Department` inclui `parent_id`
+- Coluna "Departamento" exibe caminho completo: `Parent › Name` quando existe pai
+
+**`app/(authenticated)/overview/_components/node-detail-sheet.tsx`**:
+- `NodeDetail.subDepartments` inclui `sectors: {id,name}[]`
+- Setores exibidos como tags/chips (`rounded-full`, fundo `#364B59/5`) abaixo do nome de cada área subordinada
+
+**`app/(authenticated)/overview/_components/org-chart.tsx`**:
+- `OrgChartNodeData.subDepartments` inclui `sectors: {id,name}[]`
+
+**`app/(authenticated)/overview/page.tsx`**:
+- `subDepartments` inclui `sectors` populados via `childrenByParent.get(c.department_id)`
+
+### Arquivos alterados
+
+| Arquivo | Mudança |
+|---------|---------|
+| `admin/goals/page.tsx` | `parent_id` no select de departments |
+| `admin/_components/goal-form-dialog.tsx` | Dropdown hierárquico + `useMemo` |
+| `admin/_components/goals-table.tsx` | Caminho `Parent › Name` na coluna Departamento |
+| `overview/_components/node-detail-sheet.tsx` | Chips de setor sob cada sub-dept |
+| `overview/_components/org-chart.tsx` | Tipo atualizado com `sectors` |
+| `overview/page.tsx` | `sectors` populados no build dos nodes |
+
+- TypeScript: zero erros
+- DB Migration: executada diretamente via Supabase MCP
+
+---
+
+## Sessão 9 — 2026-06-09 (continuação)
+
+### Req 1: Remover efeito fosco sob os nós do organograma
+
+**Causa provável**: `overflow-x-auto` cria um novo contexto de formatação de bloco (BFC) e não herda o `bg-white` do container pai em alguns chromium builds — o `bg-surface` (#F8F9FA) da camada de layout vazava para dentro.
+
+**Correção**:
+- `overview/_components/org-chart.tsx`: `bg-white` explícito no `overflow-x-auto` e no `min-w-[920px]` div interno
+- `overview/page.tsx`: `bg-white` explícito no `py-8` wrapper do OrgChart
+
+### Req 2: Adicionar campo Subpeso às metas
+
+**DB**: `ALTER TABLE goals ADD COLUMN sub_weight numeric DEFAULT NULL CHECK (0–100)`
+
+**Schema** (`lib/schemas/goal.ts`): `sub_weight: z.number().min(0).max(100).nullable()`
+
+**Formulário** (`admin/_components/goal-form-dialog.tsx`):
+- Campos "Peso (%)" e "Subpeso (%)" lado a lado em `grid-cols-2`
+- Subpeso é opcional (placeholder "—", `onChange` converte vazio → null)
+
+**Tabela admin** (`admin/_components/goals-table.tsx`):
+- Nova coluna "Subpeso" com "—" quando nulo
+
+**Tabela executiva** (`my-goals/_components/goals-executive-table.tsx`):
+- Coluna "Subpeso" exibe `sub_weight` se preenchido, senão `weight` como fallback
+
+| Arquivo | Mudança |
+|---------|---------|
+| `overview/_components/org-chart.tsx` | `bg-white` no scroll container |
+| `overview/page.tsx` | `bg-white` no wrapper py-8 |
+| `lib/schemas/goal.ts` | `sub_weight` nullable number |
+| `admin/_components/goal-form-dialog.tsx` | Campo Subpeso opcional |
+| `admin/_components/goals-table.tsx` | Coluna Subpeso |
+| `my-goals/_components/goal-card.tsx` | Interface + campo |
+| `my-goals/_components/goals-executive-table.tsx` | sub_weight no Subpeso |
+| `my-goals/page.tsx` | Busca sub_weight |
+
+- TypeScript: zero erros
+
+---
+
+## Sessão 10 — 2026-06-09
+
+### Requisitos implementados
+
+1. **Redirect pós-login para `/overview`**
+2. **Multi-departamento para usuários**
+3. **Admin vê todos em Minha Equipe + Atualização de Metas**
+
+---
+
+### 1. Redirect pós-login → `/overview`
+
+**Arquivo:** `app/auth/callback/route.ts`
+
+- Alterado: `const next = searchParams.get("next") ?? "/dashboard"` → `"/overview"`
+
+---
+
+### 2. Multi-departamento
+
+**DB:** Nova tabela junction `profile_departments(profile_id uuid, department_id uuid, PRIMARY KEY(...))`
+- FKs para `profiles(id)` e `departments(id)` com `ON DELETE CASCADE`
+- RLS habilitado com políticas de leitura e escrita para `authenticated`
+
+**Schema** (`lib/schemas/user.ts`):
+- `department_id` substituído por `department_ids: flexUuid.array().optional()` em ambos os schemas
+- Primeiro elemento do array se torna `profiles.department_id` (compatibilidade retroativa com views)
+
+**Actions** (`lib/actions/users.ts`):
+- `createUserProfile`: separa `department_ids`, define `department_id = department_ids[0]`, insere perfil e então insere todos em `profile_departments`
+- `updateUserProfile`: separa `department_ids`, atualiza `profiles.department_id`, deleta e reinsere `profile_departments`
+
+**Página admin** (`admin/users/page.tsx`):
+- Busca `profile_departments` e monta `department_ids[]` por perfil (com fallback para `department_id` legado)
+
+**UI** (`user-create-dialog.tsx`, `user-edit-dialog.tsx`):
+- Substituído `<Select>` único por `DeptMultiSelect` (componente inline com checkbox list + dropdown)
+- Checkboxes com `accent-[#364B59]`, lista scrollável, trigger mostra nomes separados por vírgula
+
+**Tabela de usuários** (`users-table.tsx`):
+- Coluna Departamento exibe todos os departamentos do usuário separados por vírgula
+
+---
+
+### 3. Admin vê todos
+
+**`team/page.tsx`:**
+- Busca role do usuário; se `admin`, remove filtro `superior_id` e busca todos os perfis (excluindo o próprio)
+- Subtítulo da página muda para "Visão geral de todos os colaboradores e suas metas"
+
+**`my-goals/page.tsx`:**
+- Busca `role` do perfil; se `admin`, remove filtro `owner_id` e busca TODAS as metas com `owner:profiles!owner_id(name)`
+- Agrupa metas por responsável e exibe uma seção por colaborador com `GoalsExecutiveTable` separada
+- Painel de alertas desativado para admin (alertas são individuais)
+- Subtítulo: "Todos os Colaboradores"
+
+**`goal-card.tsx`:**
+- `GoalCardData` recebe `owner_id?: string` e `owner?: { name: string }[] | null` (opcionais)
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/auth/callback/route.ts` | Redirect padrão `/overview` |
+| `lib/schemas/user.ts` | `department_ids` array |
+| `lib/actions/users.ts` | Sync `profile_departments` |
+| `admin/users/page.tsx` | Fetch junction table |
+| `admin/_components/users-table.tsx` | Interface + display multi-dept |
+| `admin/_components/user-create-dialog.tsx` | DeptMultiSelect |
+| `admin/_components/user-edit-dialog.tsx` | DeptMultiSelect com pre-load |
+| `team/page.tsx` | Admin vê todos os colaboradores |
+| `my-goals/page.tsx` | Admin vê todas as metas agrupadas |
+| `my-goals/_components/goal-card.tsx` | Campos owner opcionais |
+| DB migration | `profile_departments` junction table |
+
+- TypeScript: zero erros
