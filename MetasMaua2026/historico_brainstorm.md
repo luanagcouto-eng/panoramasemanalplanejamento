@@ -838,6 +838,7 @@ O formulário de e-mail/senha do HTML de referência é um protótipo visual (au
 - **Rodapé**: "ESTALEIRO MAUÁ S.A. · NAVAL 2026" → `"ESTALEIRO MAUÁ"` (simplificado)
 - Montserrat Black mantida no título/subtítulo
 - Commit: `a20ba0d`
+- **Dropdown Departamento simplificado** (commit `cf6a21c`): removida coluna "setor" ao lado do nome; exibe apenas `d.name`
 
 ### Fix — Dialog "Nova Meta" (admin/goals) — 2026-06-09
 
