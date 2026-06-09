@@ -1302,3 +1302,73 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - Build: sucesso (TypeScript OK, 16 rotas)
 - Commit: `9a59e1f`
+
+---
+
+## Sessão 7 — 2026-06-09
+
+### Requisitos do usuário
+
+1. **Impressão (todas as páginas):** Cabeçalho com logo da empresa + rodapé com data/hora e nome do sistema em toda impressão/PDF
+2. **Visão Geral `/overview`:** Seguir o layout do modelo de referência — KPI bar, ícone/avatar nos nós, botão "Ver detalhes →" explícito, legenda e card de instrução dentro do container, timestamp "Última atualização"
+
+---
+
+### Implementações
+
+#### 1. Cabeçalho e rodapé de impressão (todas as páginas autenticadas)
+
+**`components/layout/print-elements.tsx`** — novo client component:
+- Dois blocos com `display: none` na tela e visíveis apenas em `@media print`
+- **Cabeçalho (topo):** `position: fixed` → logo `logo-maua.png` à esquerda + "METAS ESTRATÉGICAS 2026 — ESTALEIRO MAUÁ" à direita + linha divisória navy
+- **Rodapé (fundo):** `position: fixed` → "Impresso em DD/MM/AAAA HH:MM" à esquerda + nome do sistema à direita
+- Timestamp gerado client-side via `useEffect` (reflete o momento real da impressão, não o horário de carga da página)
+- `position: fixed` em `@media print`: comportamento Chrome/Edge — elementos fixos se repetem em cada página do PDF
+
+**`app/globals.css`** — adições:
+- Classe `.print-only { display: none !important }` — genérica, reutilizável
+- Classes `.print-page-header`, `.print-page-footer`, `.print-header-inner`, `.print-logo`, `.print-system-name`, `.print-rule`, `.print-footer-inner` estilizadas dentro de `@media print`
+- Classe `.print-content { padding-top: 68px; padding-bottom: 44px }` dentro de `@media print` — impede sobreposição do conteúdo com o cabeçalho/rodapé fixos
+
+**`app/(authenticated)/layout.tsx`:**
+- Import e renderização de `PrintElements` dentro do `<main>`, antes do `<div className="p-8">`
+- Classe `print-content` adicionada ao `<div className="p-8 print-content">`
+
+#### 2. Visão Geral — redesign conforme modelo de referência
+
+**`app/(authenticated)/overview/page.tsx`** — reestruturado:
+- Imports: `Users`, `Target`, `TrendingUp`, `Flag`, `Info` (lucide-react) + `OrgChartFooter`
+- Helper `KpiCard` (server component): card com ícone circular, valor grande, label, sublabel e cor de acento opcional
+- **KPI Summary Grid (4 cards acima do organograma):**
+  - Diretorias: `nodes.length`
+  - Metas ativas: `company.goals_count`
+  - Progresso médio: `company.progress_pct` com cor dinâmica (verde ≥ 66%, laranja 33–65%, vermelho < 33%)
+  - Meta esperada: 66% fixo (threshold "bom" do design system) em laranja
+- Container branco unificado: OrgChart + rodapé com legenda, info card e `OrgChartFooter`
+- Legenda de progresso movida para dentro do container (antes estava abaixo como elemento separado)
+- Card de instrução: ícone `Info` + texto "Clique em uma diretoria para visualizar as metas..."
+
+**`app/(authenticated)/overview/_components/org-node.tsx`** — atualizado:
+- Import: `Building2`, `UserCircle2`, `ChevronRight` (lucide-react)
+- **Avatar circle** no topo de cada card: círculo navy/10 opacity com `Building2` (diretorias) ou `UserCircle2` (CEO/Presidência)
+- Role label ("Presidência"/"Diretoria") movido para ao lado do avatar
+- **"Ver detalhes →"** com `ChevronRight` no rodapé de cada card de diretoria (não exibido no CEO); anima de `text-[#364B59]/50` → `text-[#364B59]` no hover do grupo
+
+**`app/(authenticated)/overview/_components/org-chart-footer.tsx`** — novo client component:
+- "Última atualização: DD/MM/AAAA HH:MM" gerado client-side via `useEffect`
+- Botão "Atualizar dados" com ícone `RefreshCw` que chama `window.location.reload()`
+- Separado por `border-t border-border` do conteúdo acima
+
+### Arquivos alterados/criados
+
+| Arquivo | Mudança |
+|---------|---------|
+| `components/layout/print-elements.tsx` | Novo: cabeçalho e rodapé fixos para impressão |
+| `app/globals.css` | `.print-only`, `.print-content`, classes de print header/footer |
+| `app/(authenticated)/layout.tsx` | `PrintElements` + classe `print-content` |
+| `app/(authenticated)/overview/page.tsx` | KPI bar; container unificado com legenda/info/footer |
+| `app/(authenticated)/overview/_components/org-node.tsx` | Avatar Building2/UserCircle2 + "Ver detalhes →" |
+| `app/(authenticated)/overview/_components/org-chart-footer.tsx` | Novo: timestamp + Atualizar dados |
+
+- Build: sucesso (TypeScript OK, 16 rotas)
+- Commit: `05aeb21`
