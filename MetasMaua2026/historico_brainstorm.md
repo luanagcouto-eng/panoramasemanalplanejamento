@@ -999,3 +999,37 @@ Duas migrações distintas criaram funções de audit com schemas diferentes par
 
 - Build: sucesso (14,3 s compile, TypeScript OK, 15 rotas)
 - Commit: `d3e6a31`
+
+---
+
+## Sessão 3 — 2026-06-09
+
+### Correções
+
+#### 1. Nome do usuário logado em "Atualização de Metas"
+
+**Problema:** A página `/my-goals` exibia só o título genérico "Atualização de Metas" sem identificar a quem pertenciam as metas.
+
+**Solução:** `my-goals/page.tsx` — busca do perfil (`profiles.name`) do usuário autenticado imediatamente após o `auth.getUser()`. Nome exibido como linha intermediária entre o título `<h1>` e o subtítulo descritivo, usando a cor primária `#364B59` para hierarquia visual.
+
+#### 2. Erro ao criar usuário ("Erro ao criar usuário. Verifique os campos.")
+
+**Causa raiz:** A coluna `profiles.id` era `uuid NOT NULL` sem valor default. O Server Action `createUserProfile` fazia INSERT sem fornecer `id`, causando violação de NOT NULL.
+
+**Solução:** Migration Supabase `profiles_id_default_gen_random_uuid`:
+```sql
+ALTER TABLE public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
+```
+O Postgres agora gera automaticamente um UUID v4 para cada perfil placeholder criado.
+
+**Nota:** `profiles.id` não tem FK para `auth.users` — é chave primária livre. O vínculo entre placeholder e usuário real ocorre via `email` quando o colaborador faz o primeiro login.
+
+### Arquivos alterados
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/(authenticated)/my-goals/page.tsx` | Busca `profiles.name` do usuário logado; exibe nome abaixo do `<h1>` |
+| Supabase migration | `profiles.id SET DEFAULT gen_random_uuid()` |
+
+- Build: sucesso (TypeScript OK, 15 rotas)
+- Commit: `00e64f0`
