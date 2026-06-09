@@ -591,6 +591,31 @@ Coincidentemente, o shadcn já define `--muted-foreground: #6B7280` — exatamen
 
 ---
 
+## Fase 6 — Relatórios (Parte 1) — Concluída em 2026-06-09
+
+### O que foi feito
+
+| Item | Arquivo |
+|------|---------|
+| Página `/reports` (CEO + admin) com fetch de todas as metas 2026 | `app/(authenticated)/reports/page.tsx` |
+| Componente `ReportsView` — filtro por período, cards de resumo, tabela, exportação CSV | `app/(authenticated)/reports/_components/reports-view.tsx` |
+
+### Funcionalidades
+- **Cards de resumo:** total de metas, progresso consolidado anual ponderado (Σ atual/meta × peso / Σ peso), metas em risco (< 50%), sem lançamento
+- **Filtro por período:** Todas / Anual / T1 / T2 / T3 / T4 (client-side, sem round-trip)
+- **Tabela completa:** título, responsável, departamento, período, meta, atual, peso, progresso (% + mini barra) e status do lançamento
+- **Exportar CSV:** BOM UTF-8 para compatibilidade com Excel; habilitado apenas quando há dados reais
+- **Mockup:** quando não há metas cadastradas, exibe 6 linhas de exemplo (opacity-50, non-interactive) + banner âmbar
+- Commit `8bdf9f1` em `main`; deploy Vercel automático
+
+### Decisões técnicas
+- Filtro client-side: o dataset de uma empresa como a Mauá (≤ 100 metas) cabe em memória sem paginação
+- BOM UTF-8 (`﻿`) no CSV: necessário para o Excel no Windows interpretar acentos corretamente sem precisar de "Importar dados"
+- Relações `owner`/`department` normalizadas de array → objeto único (padrão PostgREST + Supabase JS)
+- Barra de progresso inline (16px) por linha: faz a tabela ser "lida" visualmente sem precisar abrir cada registro
+
+---
+
 ## Manutenção — Admin: mockup + acesso ceo (2026-06-09)
 
 ### Problema
