@@ -818,3 +818,16 @@ DELETE FROM public.profiles WHERE id = '<id_placeholder_correspondente>'::uuid;
 
 **Decisão de não incluir campos e-mail/senha:**
 O formulário de e-mail/senha do HTML de referência é um protótipo visual (autenticação fake com `password === "1"`). Como o sistema usa exclusivamente Google OAuth, os campos foram omitidos para evitar UX confuso com campos não-funcionais. Os dois botões Google refletem a hierarquia visual da referência (CTA primário escuro + alternativa branca).
+
+### Build de produção — 2026-06-09
+
+- Compilação Turbopack: **sucesso** em 14,6 s
+- TypeScript: **passou** (17 s, zero erros)
+- Static pages: **15 rotas geradas**
+  - Estáticas (`○`): `/`, `/_not-found`, `/auth/error`
+  - Dinâmicas (`ƒ`): `/login`, `/dashboard`, `/my-goals`, `/team`, `/overview`, `/reports`, `/admin/audit`, `/admin/goals`, `/admin/users`, `/auth/callback`
+- Proxy (Middleware): ativo
+- Avisos não-bloqueantes:
+  - `workspace root` inferido incorretamente (múltiplos `package-lock.json` no sistema — ignorar)
+  - `"middleware"` deprecated → usar `"proxy"` (aviso do Next.js 16 interno — não afeta comportamento)
+- Commit: `10896d6` → deploy automático no Vercel via push `main`
