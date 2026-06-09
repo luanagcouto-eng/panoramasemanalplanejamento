@@ -591,7 +591,21 @@ Coincidentemente, o shadcn já define `--muted-foreground: #6B7280` — exatamen
 
 ---
 
-## Fase 6 — Relatórios (Parte 1) — Concluída em 2026-06-09
+## Fase 6 — Polimento e Observabilidade — Concluída em 2026-06-09
+
+### Itens entregues
+
+| Item do plano original | Status | Detalhe |
+|------------------------|--------|---------|
+| Integração Sentry | ⏳ Pendente | Requer criação de conta no Sentry.io e DSN; documentado abaixo |
+| Notificações — alerta quando meta < X% | ✅ Concluído | `GoalAlertsPanel` in-app em `/my-goals` |
+| Exportação PDF do painel do CEO / Relatórios | ✅ Concluído | `@media print` + botão "Imprimir / PDF" em `/reports` |
+| Ajustes de acessibilidade | ✅ Concluído | Skip nav, aria-current, aria-label, aria-live, aria-hidden |
+| Vercel Analytics | ✅ Concluído | `@vercel/analytics` instalado e ativado no root layout |
+
+---
+
+### Parte 1 — Relatórios — Concluída em 2026-06-09
 
 ### O que foi feito
 
@@ -613,6 +627,62 @@ Coincidentemente, o shadcn já define `--muted-foreground: #6B7280` — exatamen
 - BOM UTF-8 (`﻿`) no CSV: necessário para o Excel no Windows interpretar acentos corretamente sem precisar de "Importar dados"
 - Relações `owner`/`department` normalizadas de array → objeto único (padrão PostgREST + Supabase JS)
 - Barra de progresso inline (16px) por linha: faz a tabela ser "lida" visualmente sem precisar abrir cada registro
+
+---
+
+### Parte 2 — Notificações, Print/PDF, Analytics, Acessibilidade — Concluída em 2026-06-09
+
+#### O que foi feito
+
+| Item | Arquivo |
+|------|---------|
+| Vercel Analytics integrado | `app/layout.tsx` — `import { Analytics } from "@vercel/analytics/react"` + `<Analytics />` |
+| Componente `GoalAlertsPanel` | `components/alerts/goal-alerts-panel.tsx` |
+| Alertas computados e injetados na página Minhas Metas | `app/(authenticated)/my-goals/page.tsx` |
+| Print CSS global | `app/globals.css` — bloco `@media print` |
+| Botão "Imprimir / PDF" nos Relatórios | `app/(authenticated)/reports/_components/reports-view.tsx` |
+| Acessibilidade: skip nav, aria-current, aria-label, aria-hidden | `app/(authenticated)/layout.tsx`, `components/layout/app-sidebar.tsx`, `reports-view.tsx` |
+
+#### Painel de Alertas — GoalAlertsPanel
+- **3 tipos de alerta**, computados no servidor (server component `my-goals/page.tsx`), passados como props ao client component:
+  - `"no-history"` — meta sem nenhum lançamento e cujo período **não** é o trimestre atual (vermelho)
+  - `"quarter-pending"` — meta do **trimestre atual** sem lançamento (âmbar)
+  - `"at-risk"` — meta anual com progresso **< 50%** (laranja)
+- Trimestre atual calculado em runtime via `new Date().getMonth()` (dinâmico — sem hardcode)
+- Dismissível via botão `×` (state local); reexibe a cada carregamento de página (sem persistência de dismiss — intenção: alertar sempre que a condição existir)
+- `role="alert"` + `aria-live="polite"` para leitores de tela
+
+#### Print / PDF
+- `@media print` em `globals.css`: oculta `aside` (sidebar) e elementos com classe `.no-print`, remove `margin-left`, define `@page { size: A4 landscape; margin: 1.2cm }`, reseta truncamento em células da tabela
+- Botão "Imprimir / PDF" em `/reports` chama `window.print()` — usuário pode escolher "Salvar como PDF" no diálogo do navegador
+- Filtros e botão de exportação têm classe `no-print` → não aparecem no impresso
+
+#### Melhorias de Acessibilidade
+| Melhoria | Onde |
+|----------|------|
+| Skip navigation link ("Ir para o conteúdo principal") | `app/(authenticated)/layout.tsx` — aparece apenas no foco (`focus:not-sr-only`) |
+| `id="main-content"` + `tabIndex={-1}` no `<main>` | `app/(authenticated)/layout.tsx` |
+| `aria-label="Navegação principal"` no `<nav>` | `app-sidebar.tsx` |
+| `aria-current="page"` no link ativo | `app-sidebar.tsx` |
+| `aria-hidden="true"` nos ícones decorativos SVG | `app-sidebar.tsx` |
+| `aria-label="Sair da conta"` no botão de logout | `app-sidebar.tsx` |
+| `aria-pressed` nos botões de filtro de período | `reports-view.tsx` |
+| `aria-label="Imprimir relatório como PDF"` | `reports-view.tsx` |
+
+#### Sentry — Pendente (requer conta externa)
+Para integrar o Sentry, será necessário:
+1. Criar conta em [sentry.io](https://sentry.io) e criar projeto "Next.js"
+2. Obter o DSN do projeto
+3. `npm install @sentry/nextjs`
+4. Executar `npx @sentry/wizard@latest -i nextjs` (configura automaticamente `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts` e `next.config.ts`)
+5. Adicionar `SENTRY_DSN` nas variáveis de ambiente da Vercel
+6. Testar com `Sentry.captureException(new Error("teste"))` em uma rota protegida
+
+#### Decisões técnicas
+- `@vercel/analytics` sem configuração adicional — funciona automaticamente em projetos Vercel via `NEXT_PUBLIC_VERCEL_*` env vars injetadas automaticamente no build
+- Alertas computados no servidor (não client) → zero JS extra para cálculo; só o dismiss é client-side
+- Print CSS em `globals.css` (não em módulo por rota) — garante que o comportamento de impressão seja consistente em toda a aplicação sem riscos de "esqueceu de importar"
+- Commit `f1903ac` em `main`; deploy Vercel automático
 
 ---
 
