@@ -4,7 +4,7 @@
 > Metodologia: SDD (Specification-Driven Development) + GSD (Goal-Driven Design)  
 > Início: 2026-06-08  
 > Status: **Em produção** — todas as 7 fases entregues (Sentry infra pronta, aguarda DSN da conta Sentry.io)  
-> Produção: https://estaleiromaua.vercel.app  
+> Produção: https://estaleiromaua-eight.vercel.app  
 > Repositório: https://github.com/luanagcouto-eng/estaleiromaua
 
 ---
