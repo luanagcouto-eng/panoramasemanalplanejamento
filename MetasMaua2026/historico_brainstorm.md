@@ -832,6 +832,13 @@ O formulário de e-mail/senha do HTML de referência é um protótipo visual (au
   - `"middleware"` deprecated → usar `"proxy"` (aviso do Next.js 16 interno — não afeta comportamento)
 - Commit: `10896d6` → deploy automático no Vercel via push `main`
 
+### Ajuste visual login — 2026-06-09
+
+- **Botão "ACESSAR PAINEL"**: `bg-slate-900` → `bg-[#C8D5DC]` (cinza azulado do design system, mesmo tom do nav inativo no sidebar); texto `#364B59`; hover inverte para fundo navy + texto branco
+- **Rodapé**: "ESTALEIRO MAUÁ S.A. · NAVAL 2026" → `"ESTALEIRO MAUÁ"` (simplificado)
+- Montserrat Black mantida no título/subtítulo
+- Commit: `a20ba0d`
+
 ### Fix — Dialog "Nova Meta" (admin/goals) — 2026-06-09
 
 **Problema reportado:** Campos Responsável e Departamento exibiam UUIDs truncados em vez dos nomes; diálogo pequeno demais.
