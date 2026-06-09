@@ -1033,3 +1033,272 @@ O Postgres agora gera automaticamente um UUID v4 para cada perfil placeholder cr
 
 - Build: sucesso (TypeScript OK, 15 rotas)
 - Commit: `00e64f0`
+
+---
+
+## Sessão 4 — 2026-06-09
+
+### Requisitos do usuário
+
+1. **Visão Geral:** linhas do organograma 50% mais escuras
+2. **Visão Geral:** legenda de cores: 0–33% Vermelho (#DFA1AA) · 33–66% Amarelo (#F9E79F) · 66–100% Verde (#9AD595)
+3. **Visão Geral:** detalhe da diretoria deve mostrar cada meta atribuída ao departamento e seu % de atingimento
+4. **Atualização de Metas:** filtro de período (Todas, Anual, T1, T2, T3, T4) + indicador de obrigatoriedade trimestral
+5. **Auditoria:** página não funcionava
+6. **Favicon:** ícone de alvo com fundo laranja
+7. **Documentação para GitHub**
+
+---
+
+### Correções e implementações
+
+#### 1. Sistema de cores — 3 faixas (globals.css + lib/utils.ts)
+
+**Antes:** 5 faixas em tons de laranja/navy (0%, 1–30%, 31–60%, 61–89%, 90–100%).
+
+**Depois:** 3 faixas pastéis conforme solicitado:
+
+| Faixa | Cor | CSS var |
+|-------|-----|---------|
+| 0–32% | `#DFA1AA` (vermelho) | `--color-goal-low` |
+| 33–65% | `#F9E79F` (amarelo) | `--color-goal-mid` |
+| 66–100% | `#9AD595` (verde) | `--color-goal-high` |
+
+Removidas vars `--color-goal-empty` e `--color-goal-full` (não usadas com o novo sistema).
+
+`goalColor()` e `goalTextClass()` em `lib/utils.ts` atualizados para os 3 thresholds. Texto dos badges agora usa cores escuras para garantir contraste em pastéis.
+
+#### 2. Linhas do organograma mais escuras (org-chart.tsx)
+
+Conector vertical CEO→linha horizontal e conectores verticais de cada diretoria: `bg-border` (`#E2E8F0`) → `bg-slate-400` (`#94A3B8`), ~50% mais escuro no espectro.
+
+#### 3. Texto do nó OrgNode (org-node.tsx)
+
+Com pastéis, texto branco (`text-white`) perdia contraste. Toda a lógica condicional de cor de texto foi removida; todos os elementos agora usam `text-[#364B59]` / `text-[#364B59]/70` independente do % de preenchimento.
+
+#### 4. Legenda de Visão Geral (overview/page.tsx)
+
+Atualizada de 5 swatches para 3, com as cores e rótulos corretos:
+- `#DFA1AA` — "0% – 33%"
+- `#F9E79F` — "33% – 66%"
+- `#9AD595` — "66% – 100%"
+
+#### 5. Metas por departamento no detalhe da diretoria
+
+**Interfaces atualizadas:**
+- `OrgChartNodeData` (org-chart.tsx): novo campo `goals: GoalItem[]`
+- `NodeDetail` (node-detail-sheet.tsx): novo campo `goals`
+
+**Fluxo de dados:**
+- `overview/page.tsx`: nova query `supabase.from("goals").select("id, title, period, target_value, current_value, department_id")`, groupBy `department_id`
+- `goalsByDept` passado para cada nó no array `nodes`
+
+**UI no NodeDetailSheet:**
+- Nova seção "Metas atribuídas" com card por meta
+- Exibe: título, badge de período (Anual/T1/T2/T3/T4), badge de % com cor da faixa, barra de progresso colorida
+
+#### 6. Filtro de período em Atualização de Metas (goals-executive-table.tsx)
+
+Adicionado array `PERIOD_FILTERS` (Todas · Anual · T1 · T2 · T3 · T4) e `CURRENT_QUARTER` calculado dinamicamente.
+
+**Comportamento:**
+- Botões de filtro estilo pill idênticos aos de Relatórios
+- Trimestre atual (atualmente T2) recebe um **dot laranja** no canto superior direito como indicador visual
+- Cabeçalho da tabela do trimestre atual exibe: `"2º Trimestre · ⚠ Trimestre atual — lançamento obrigatório"`
+- Estado `periodFilter` controla qual período é exibido; KPI cards e tabelas filtram junto
+
+#### 7. Auditoria — correção de colunas
+
+**Causa raiz:** A tabela `audit_log` nunca teve as colunas `entity_type` e `created_at`. Os campos reais são:
+- `timestamp` (não `created_at`)
+- `action` contém o tipo de entidade embutido: `INSERT_GOAL`, `UPDATE_GOAL_HISTORY`, etc.
+
+**Correções em `audit/page.tsx`:**
+- SELECT e ORDER trocados para `timestamp`
+- Interface `AuditLogRow`: removido `entity_type` e `created_at`; adicionado `timestamp`
+
+**Correções em `audit-log-view.tsx`:**
+- Adicionadas funções `entityTypeFromAction(action)` e `opFromAction(action)` que fazem parse do campo `action`
+- Filtro de entidade agora usa `entityTypeFromAction` em vez de `entity_type` inexistente
+- Data/hora renderizada usando `row.timestamp`
+- Badge de ação usa `opFromAction` para extrair INSERT/UPDATE/DELETE do action composto
+
+#### 8. Favicon (app/icon.svg)
+
+Criado `app/icon.svg` — formato reconhecido automaticamente pelo Next.js App Router (sem necessidade de alterar `layout.tsx`).
+
+Design: fundo retangular com `rx=6` laranja Mauá (`#F18213`) + 3 círculos concêntricos brancos (alvo/bullseye) + 4 traços de mira nas extremidades.
+
+Aparece na rota `/icon.svg` como rota estática.
+
+#### 9. README.md
+
+Criado `README.md` completo em português cobrindo:
+- Stack e tecnologias
+- Papéis e páginas acessíveis por role
+- Descrição de cada funcionalidade
+- Estrutura do banco de dados (tabelas + views)
+- Instruções de setup local
+- Estrutura de pastas
+
+### Arquivos alterados
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/globals.css` | CSS vars: 5 faixas → 3 faixas pastéis |
+| `lib/utils.ts` | `goalColor()` e `goalTextClass()`: thresholds 33/66% |
+| `app/(authenticated)/overview/_components/org-chart.tsx` | `bg-border` → `bg-slate-400` nas linhas; interface `OrgChartNodeData` + `GoalItem` |
+| `app/(authenticated)/overview/_components/org-node.tsx` | Texto sempre escuro (sem branco condicional) |
+| `app/(authenticated)/overview/_components/node-detail-sheet.tsx` | Seção "Metas atribuídas" com barra de progresso por meta |
+| `app/(authenticated)/overview/page.tsx` | Query goals por dept; legenda 3 swatches; passa `goals` aos nós |
+| `app/(authenticated)/admin/audit/page.tsx` | Colunas corrigidas: `timestamp`, sem `entity_type` |
+| `app/(authenticated)/admin/audit/_components/audit-log-view.tsx` | `entityTypeFromAction()` / `opFromAction()`; usa `row.timestamp` |
+| `app/(authenticated)/my-goals/_components/goals-executive-table.tsx` | Filtro de período; dot no trimestre atual; aviso de obrigatoriedade |
+| `app/icon.svg` | Favicon SVG novo (alvo laranja) |
+| `README.md` | Documentação completa do projeto |
+| Supabase migration | `profiles.id SET DEFAULT gen_random_uuid()` (sessão anterior) |
+
+- Build: sucesso (TypeScript OK, 16 rotas — `/icon.svg` adicionada como rota estática)
+- Commit: `524a6a0`
+
+---
+
+## Sessão 5 — 2026-06-09
+
+### Requisitos do usuário
+
+1. **Minha Equipe:** Botão "Imprimir / PDF" para exportar a tela como PDF
+2. **Admin → Usuários:** Nomes de usuários placeholder atribuíveis a metas (sem depender de login); limpar status badge mock
+3. **Atualização de Metas:** Simplificar cabeçalho da tabela do trimestre atual
+4. **Lançar resultado:** Campo de seleção de período de referência no dialog
+
+---
+
+### Implementações
+
+#### 1. Botão "Imprimir / PDF" em Minha Equipe
+
+Novo arquivo: `app/(authenticated)/team/_components/team-print-button.tsx` (client component)
+
+- Botão "Imprimir / PDF" com `window.print()`, classe `no-print` (some ao imprimir)
+- Estilo: variante outline, cor navy, hover inverte para fundo navy + texto branco
+- Integrado no header de `team/page.tsx`
+
+#### 2. Usuários placeholder atribuíveis + status badge
+
+**`app/(authenticated)/admin/goals/page.tsx`:**
+- Removido filtro `.eq("is_placeholder", false)` do dropdown "Responsável" → todos os 14 perfis cadastrados aparecem para atribuição, independente de terem feito login
+
+**`app/(authenticated)/admin/_components/users-table.tsx`:**
+- Removido badge "Pendente login" (âmbar) — todos os usuários mostram apenas "Ativo" (verde)
+- Contador: exibe total de usuários sem distinguir placeholder de real
+
+#### 3. Título simplificado em Atualização de Metas
+
+**`app/(authenticated)/my-goals/_components/goals-executive-table.tsx`:**
+- Cabeçalho de seção: `"${PERIOD_LABELS[period]} · ⚠ Trimestre atual — lançamento obrigatório"` → `PERIOD_LABELS[period] ?? period`
+- Indicador de obrigatoriedade mantido: dot laranja no botão de filtro do trimestre atual com `title` de tooltip
+
+#### 4. Seleção de período no dialog "Lançar resultado"
+
+**Migration Supabase:** `goal_history_add_period_column`
+```sql
+ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
+```
+
+**`lib/schemas/goal-entry.ts`:**
+- Adicionado `GOAL_PERIODS` array e campo `period: z.enum(GOAL_PERIODS, { error: "Selecione o período de referência" })`
+
+**`app/(authenticated)/my-goals/_components/goal-entry-dialog.tsx`:**
+- Prop `goalPeriod: string` adicionada
+- `useEffect` reseta o form com `goalPeriod` como período padrão ao abrir
+- Campo `<Select>` de período no topo do form, com labels amigáveis (ex: "2º Trimestre (T2)")
+- Permite lançamento retroativo em período diferente da meta
+
+**`app/(authenticated)/my-goals/_components/goals-executive-table.tsx`** e **`goal-card.tsx`:**
+- Prop `goalPeriod={entryGoal.period}` / `goalPeriod={goal.period}` passada para `GoalEntryDialog`
+
+**`lib/actions/goal-history.ts`:**
+- Desestrutura `period` do payload validado e salva em `goal_history.period`
+
+### Erros corrigidos
+
+| Erro | Causa | Correção |
+|------|-------|----------|
+| `z.enum({ required_error })` | Zod v4 não aceita `required_error` em `z.enum` — use `error` | Trocado para `{ error: "Selecione o período de referência" }` |
+| Build error em `goal-card.tsx` | `GoalEntryDialog` chamado sem a nova prop `goalPeriod` | Adicionado `goalPeriod={goal.period}` |
+
+### Arquivos alterados
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/(authenticated)/team/page.tsx` | Importa e renderiza `TeamPrintButton` no header |
+| `app/(authenticated)/team/_components/team-print-button.tsx` | Novo: client component com `window.print()` |
+| `app/(authenticated)/admin/goals/page.tsx` | Remove `.eq("is_placeholder", false)` do dropdown Responsável |
+| `app/(authenticated)/admin/_components/users-table.tsx` | Todos os badges → "Ativo"; remove contador split |
+| `app/(authenticated)/my-goals/_components/goals-executive-table.tsx` | Título simplificado; passa `goalPeriod` ao dialog |
+| `app/(authenticated)/my-goals/_components/goal-card.tsx` | Passa `goalPeriod={goal.period}` ao dialog |
+| `app/(authenticated)/my-goals/_components/goal-entry-dialog.tsx` | Prop `goalPeriod`; Select de período; `useEffect` de reset |
+| `lib/schemas/goal-entry.ts` | `GOAL_PERIODS` + campo `period` no schema |
+| `lib/actions/goal-history.ts` | Salva campo `period` em `goal_history` |
+| Supabase migration | `goal_history ADD COLUMN period text` |
+
+- Build: sucesso (TypeScript OK, 16 rotas)
+- Commit: `b250932`
+
+---
+
+## Sessão 6 — 2026-06-09
+
+### Requisitos do usuário
+
+1. **Visão Geral:** Barra de progresso explícita em cada nó do organograma, sem depender somente da cor
+2. **Visão Geral:** Hierarquia visual mais clara com seções no organograma
+3. **Admin → Usuários:** Opção de excluir/deletar usuários
+
+---
+
+### Implementações
+
+#### 1. & 2. Redesign do OrgNode + hierarquia do OrgChart
+
+**`app/(authenticated)/overview/_components/org-node.tsx` — redesign completo:**
+- Removido: fill gamificado via `clip-path inset()` (fundo subia de baixo para cima conforme %)
+- Adicionado: barra colorida no topo do card (1px) com a cor da faixa de progresso (`goalColor(pct)`)
+- Adicionada: barra de progresso explícita na parte inferior do card com label "PROGRESSO" e percentual colorido
+- Adicionado: campo `goalsCount?: number` na prop — exibe "N meta(s)" abaixo da barra quando `goalsCount > 0`
+- Rótulo de role: "CEO" → "Presidência", "Diretoria" mantido
+- Texto sempre escuro `text-[#364B59]` (compatível com todos os fundos pastéis)
+
+**`app/(authenticated)/overview/_components/org-chart.tsx` — seções:**
+- Novo componente inline `SectionChip` — pill com texto uppercase, borda slate, fundo branco
+- Adicionado chip "Presidência" acima do CEO card (com conector vertical abaixo)
+- Conector CEO→diretorias agora inclui chip "Diretorias" centralizado entre os dois trechos do conector vertical — cria separação visual clara entre os dois níveis hierárquicos
+- Adicionado rodapé "Clique em uma diretoria para ver metas e áreas subordinadas" em cinza claro
+- `goalsCount={node.goalsCount}` e `goalsCount={ceo.goalsCount}` passados para os nós
+
+#### 3. Exclusão de usuários (Admin → Usuários)
+
+**`lib/actions/users.ts` — nova server action `deleteUserProfile(id)`:**
+- Verifica se o usuário tem metas atribuídas (`goals.owner_id`) — bloqueia exclusão com mensagem amigável se sim
+- Verifica se o usuário é superior de outros perfis (`profiles.superior_id`) — bloqueia se sim
+- Se limpo, faz DELETE em `profiles` e chama `revalidatePath("/admin/users")`
+
+**`app/(authenticated)/admin/_components/users-table.tsx` — botão de exclusão:**
+- Ícone `Trash2` (lucide-react) como botão ghost vermelho ao lado do botão "Editar"
+- Estado `deleteTarget: UserRow | null` controla qual usuário está selecionado para exclusão
+- Dialog de confirmação (shadcn `Dialog`) com nome do usuário e aviso "Esta ação não pode ser desfeita"
+- Ao confirmar: chama `deleteUserProfile`, exibe toast de sucesso ou mostra a mensagem de bloqueio via toast de erro
+- Cabeçalho da coluna renomeado "Ação" → "Ações"
+
+### Arquivos alterados
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/(authenticated)/overview/_components/org-node.tsx` | Redesign: barra accent + progress bar + goalsCount; remove clip-path fill |
+| `app/(authenticated)/overview/_components/org-chart.tsx` | SectionChip Presidência/Diretorias; passa goalsCount; rodapé hint |
+| `lib/actions/users.ts` | Nova action `deleteUserProfile` com checks de FK |
+| `app/(authenticated)/admin/_components/users-table.tsx` | Botão Trash2 + Dialog de confirmação + estado `deleteTarget` |
+
+- Build: sucesso (TypeScript OK, 16 rotas)
+- Commit: `9a59e1f`
