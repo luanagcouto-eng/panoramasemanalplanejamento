@@ -3,7 +3,7 @@
 > Projeto: Aplicação web de gestão de metas corporativas  
 > Metodologia: SDD (Specification-Driven Development) + GSD (Goal-Driven Design)  
 > Início: 2026-06-08  
-> Status: **Em produção** — todas as 6 fases entregues (Sentry pendente de conta externa)  
+> Status: **Em produção** — todas as 7 fases entregues (Sentry infra pronta, aguarda DSN da conta Sentry.io)  
 > Produção: https://estaleiromaua.vercel.app  
 > Repositório: https://github.com/luanagcouto-eng/estaleiromaua
 
@@ -707,3 +707,86 @@ Para integrar o Sentry, será necessário:
 - Alertas computados no servidor (não client) → zero JS extra para cálculo; só o dismiss é client-side
 - Print CSS em `globals.css` (não em módulo por rota) — garante que o comportamento de impressão seja consistente em toda a aplicação sem riscos de "esqueceu de importar"
 - Commit `f1903ac` em `main`; deploy Vercel automático
+
+---
+
+## Fase 7 — Subordinados reais, audit_log, ProgressRing, EvidenceUpload, tabela comparativa — Concluída em 2026-06-09
+
+### Itens do backlog implementados
+
+| Item | Prioridade | Status |
+|------|-----------|--------|
+| Sentry (infra + global-error) | Alta | ✅ Concluído (aguarda DSN) |
+| Subordinados placeholder + superior_id | Alta | ✅ Concluído |
+| audit_log: trigger + página /admin/audit | Média | ✅ Concluído |
+| Tabela comparativa de gestores em /team | Média | ✅ Concluído |
+| EvidenceUpload: bucket Storage + upload | Baixa | ✅ Concluído |
+| ProgressRing: componente SVG circular | Baixa | ✅ Concluído |
+
+### O que foi feito
+
+| Item | Arquivo |
+|------|---------|
+| `sentry.client.config.ts` — Replay integration, habilitado só com DSN | `sentry.client.config.ts` |
+| `sentry.server.config.ts` — server-side tracing | `sentry.server.config.ts` |
+| `sentry.edge.config.ts` — edge runtime tracing | `sentry.edge.config.ts` |
+| `global-error.tsx` — Error Boundary global com captura Sentry | `app/global-error.tsx` |
+| `next.config.ts` atualizado com `withSentryConfig` + hostnames Storage | `next.config.ts` |
+| Drop FK `profiles_id_fkey` → permite profiles `is_placeholder=true` | migration `drop_profiles_auth_fk_for_placeholders` |
+| Função `get_subordinate_ids` atualizada (recursiva) | migration `drop_profiles_auth_fk_for_placeholders` |
+| 12 profiles placeholder inseridos (3 diretores + 9 gestores) | Supabase `execute_sql` |
+| Migration `audit_log` triggers (INSERT/UPDATE/DELETE em goals + goal_history) | migration `add_audit_log_triggers` |
+| Bucket Supabase Storage `evidence` (privado, 10 MB, PDF/imagens) | migration `create_evidence_storage_bucket` |
+| Página `/admin/audit` com tabela filtrável por entidade + expansão old/new value | `app/(authenticated)/admin/audit/page.tsx` + `_components/audit-log-view.tsx` |
+| Link "Auditoria" na sidebar (role admin/ceo) | `components/layout/app-sidebar.tsx` |
+| `TeamComparisonTable` — tabela comparativa ordenável em /team | `app/(authenticated)/team/_components/team-comparison-table.tsx` |
+| Integração da `TeamComparisonTable` na página /team | `app/(authenticated)/team/page.tsx` |
+| `ProgressRing` — SVG circular com cor por faixa, transição CSS | `components/ui/progress-ring.tsx` |
+| `GoalCard` atualizado: ProgressRing substitui barra linear horizontal | `app/(authenticated)/my-goals/_components/goal-card.tsx` |
+| `GoalEntryDialog` atualizado: botão "Anexar arquivo" + upload Storage + URL assinada 10 anos + fallback URL manual | `app/(authenticated)/my-goals/_components/goal-entry-dialog.tsx` |
+
+### Hierarquia de profiles inserida no Supabase
+
+```
+Luana Gonzaga (CEO — id real, não placeholder)
+├── Marcelo Ferreira (Director, Dir. Operações)     dddddd01-...-001
+│   ├── André Costa (Manager, Ger. Técnica)         aaaa0001-...-001
+│   ├── Fernando Rocha (Manager, Ger. Produção)     aaaa0001-...-002
+│   └── Carlos Oliveira (Manager, Ger. Manutenção)  aaaa0001-...-003
+├── Ana Paula Lima (Director, Dir. RH/EHS)          dddddd01-...-002
+│   ├── Renata Souza (Manager, Ger. RH)             aaaa0001-...-004
+│   ├── Thiago Barbosa (Manager, Ger. EHS)          aaaa0001-...-005
+│   └── Mariana Santos (Manager, Ger. TI)           aaaa0001-...-006
+└── Ricardo Alves Santos (Director, Dir. Comercial) dddddd01-...-003
+    ├── Beatriz Carvalho (Manager, Ger. Contratos)  aaaa0001-...-007
+    ├── Gustavo Mendes (Manager, Comercial Orçamento) aaaa0001-...-008
+    └── Camila Rodrigues (Manager, Comercial Vendas) aaaa0001-...-009
+```
+
+Para substituir um placeholder por um usuário real: quando o funcionário fizer login com o Google corporativo, um novo registro em `profiles` é criado com o ID real do `auth.uid()`. Execute:
+```sql
+UPDATE public.profiles SET superior_id = '<id_real_do_superior>' WHERE id = '<id_do_profile_criado_no_login>';
+DELETE FROM public.profiles WHERE id = '<id_placeholder_correspondente>'::uuid;
+```
+
+### Decisões técnicas
+
+- **Drop FK `profiles_id_fkey`**: a coluna `is_placeholder` já existia no schema original prevendo profiles sem auth user; a FK bloqueava isso. Removida para viabilizar seed de hierarquia sem exigir contas reais
+- **Sentry com guard `!!process.env.NEXT_PUBLIC_SENTRY_DSN`**: o SDK inicia silenciosamente quando sem DSN; o guard evita consumo de quota e ruído em dev local
+- **Signed URL 10 anos** para evidências uploadadas: evita expiração do link sem tornar o bucket público. Quando o funcionário saír da empresa a evidência permanece acessível para auditoria
+- **`TeamComparisonTable` só exibe quando `members.length > 1`**: não faz sentido comparar um único membro consigo mesmo
+- **ProgressRing integrado no GoalCard**: visualização circular é mais rica que a barra linear para percentuais baixos, onde a barra é quase invisível
+- **audit_log com SECURITY DEFINER**: garante que o trigger grave no `audit_log` mesmo quando o usuário não tem INSERT direto na tabela
+
+### Sentry — Passos para ativar em produção
+
+1. Criar conta em [sentry.io](https://sentry.io) → New Project → Next.js
+2. Copiar o DSN gerado (formato `https://abc@xyz.ingest.sentry.io/123`)
+3. Na Vercel: Settings → Environment Variables → adicionar `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_ORG` + `SENTRY_PROJECT`
+4. Rebuild/redeploy — os 3 config files (`sentry.*.config.ts`) serão detectados automaticamente
+5. Testar: abrir o app → DevTools Console → `Sentry.captureMessage("teste")` ou navegar para uma rota inexistente para forçar um 404 trackado
+
+### Validação
+
+- `npm run build` — build de produção concluído com sucesso, 13 rotas geradas
+- Commit `06dd100` em `main`; deploy Vercel automático
