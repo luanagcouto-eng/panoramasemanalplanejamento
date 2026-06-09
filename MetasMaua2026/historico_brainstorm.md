@@ -3,7 +3,9 @@
 > Projeto: Aplicação web de gestão de metas corporativas  
 > Metodologia: SDD (Specification-Driven Development) + GSD (Goal-Driven Design)  
 > Início: 2026-06-08  
-> Status: Planejamento / Brainstorming — Sprint 0 não iniciado
+> Status: **Em produção** — todas as 6 fases entregues (Sentry pendente de conta externa)  
+> Produção: https://estaleiromaua.vercel.app  
+> Repositório: https://github.com/luanagcouto-eng/estaleiromaua
 
 ---
 
@@ -591,6 +593,28 @@ Coincidentemente, o shadcn já define `--muted-foreground: #6B7280` — exatamen
 
 ---
 
+## Manutenção — Admin: mockup + acesso ceo (2026-06-09)
+
+### Problema
+A página "Configuração (Admin)" estava inacessível porque a role do único usuário cadastrado era `manager` — o guard das páginas admin (`/admin/goals`, `/admin/users`) redireciona para `/dashboard` se role não for `admin` nem `ceo`. Além disso, o sidebar tinha um link "Configurações" apontando para `/admin/settings` (rota inexistente).
+
+### Correções aplicadas
+
+| Arquivo | Mudança |
+|---------|---------|
+| Supabase `profiles` | Role `manager` → `ceo` via SQL UPDATE |
+| `components/layout/app-sidebar.tsx` | Adicionado `"ceo"` nas roles de "Usuários" e "Metas"; removido item "Configurações" (link quebrado `/admin/settings`) |
+| `app/(authenticated)/admin/_components/goals-table.tsx` | Quando `goals.length === 0`: exibe 4 linhas de exemplo (opacity-50, pointer-events-none) + banner âmbar explicativo |
+| `app/(authenticated)/admin/_components/users-table.tsx` | Quando `users.length === 0`: exibe 3 linhas de exemplo (opacity-50, pointer-events-none) + banner âmbar explicativo |
+
+### Comportamento resultante
+- Role `ceo` vê no sidebar: Visão Geral, Minhas Metas, Minha Equipe, Usuários, Metas
+- Admin pages já permitiam `ceo` no server-side guard (`role !== 'admin' && role !== 'ceo'`) — sidebar só precisava expor os links
+- Tabelas de metas e usuários mostram mockup realista quando não há dados reais cadastrados; ao cadastrar o primeiro item real, o mockup desaparece automaticamente
+- Commit `051c17e` em `main`; deploy Vercel automático
+
+---
+
 ## Fase 6 — Polimento e Observabilidade — Concluída em 2026-06-09
 
 ### Itens entregues
@@ -683,25 +707,3 @@ Para integrar o Sentry, será necessário:
 - Alertas computados no servidor (não client) → zero JS extra para cálculo; só o dismiss é client-side
 - Print CSS em `globals.css` (não em módulo por rota) — garante que o comportamento de impressão seja consistente em toda a aplicação sem riscos de "esqueceu de importar"
 - Commit `f1903ac` em `main`; deploy Vercel automático
-
----
-
-## Manutenção — Admin: mockup + acesso ceo (2026-06-09)
-
-### Problema
-A página "Configuração (Admin)" estava inacessível porque a role do único usuário cadastrado era `manager` — o guard das páginas admin (`/admin/goals`, `/admin/users`) redireciona para `/dashboard` se role não for `admin` nem `ceo`. Além disso, o sidebar tinha um link "Configurações" apontando para `/admin/settings` (rota inexistente).
-
-### Correções aplicadas
-
-| Arquivo | Mudança |
-|---------|---------|
-| Supabase `profiles` | Role `manager` → `ceo` via SQL UPDATE |
-| `components/layout/app-sidebar.tsx` | Adicionado `"ceo"` nas roles de "Usuários" e "Metas"; removido item "Configurações" (link quebrado `/admin/settings`) |
-| `app/(authenticated)/admin/_components/goals-table.tsx` | Quando `goals.length === 0`: exibe 4 linhas de exemplo (opacity-50, pointer-events-none) + banner âmbar explicativo |
-| `app/(authenticated)/admin/_components/users-table.tsx` | Quando `users.length === 0`: exibe 3 linhas de exemplo (opacity-50, pointer-events-none) + banner âmbar explicativo |
-
-### Comportamento resultante
-- Role `ceo` vê no sidebar: Visão Geral, Minhas Metas, Minha Equipe, Usuários, Metas
-- Admin pages já permitiam `ceo` no server-side guard (`role !== 'admin' && role !== 'ceo'`) — sidebar só precisava expor os links
-- Tabelas de metas e usuários mostram mockup realista quando não há dados reais cadastrados; ao cadastrar o primeiro item real, o mockup desaparece automaticamente
-- Commit `051c17e` em `main`; deploy Vercel automático
