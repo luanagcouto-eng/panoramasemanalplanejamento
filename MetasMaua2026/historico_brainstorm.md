@@ -790,3 +790,31 @@ DELETE FROM public.profiles WHERE id = '<id_placeholder_correspondente>'::uuid;
 
 - `npm run build` — build de produção concluído com sucesso, 13 rotas geradas
 - Commit `06dd100` em `main`; deploy Vercel automático
+
+---
+
+## Sessão 2 — 2026-06-09
+
+### Redesign da tela de login
+
+**Solicitação:** Replicar o design do arquivo `Metas Maua/Painel_Integrado_Maua.html` na tela de login, usando o OAuth Google já implementado no lugar do botão Microsoft 365, e fundo `#364B59` (azul navy do design system).
+
+**Arquivos alterados:**
+- `components/auth/login-card.tsx` — redesign completo
+- `app/layout.tsx` — adicionada fonte Montserrat via `next/font/google`
+
+**Design implementado:**
+- Fundo da página: `#364B59` (navy Estaleiro Mauá)
+- Card branco, `rounded-3xl`, `max-w-[360px]`, sombra premium (`box-shadow` com `rgba(0,66,126,0.18)`)
+- Animação de entrada: `fadeInScale` (scale + translateY, 0.7s cubic-bezier(0.22,1,0.36,1))
+- Logo `logo-maua.png` centrada no topo
+- Título `METAS ESTRATÉGICAS 2026` — Montserrat Black, uppercase, `text-[22px]`
+- Subtítulo `PORTAL DO COLABORADOR` — `text-[10px]` bold uppercase, `letter-spacing: 0.25em`, slate-400
+- Botão primário dark (`bg-slate-900`) `ACESSAR PAINEL →` com seta que translada no hover e hover invertido (fundo transparente, texto dark) — aciona Google OAuth
+- Divisor `OU UTILIZE` — linhas laterais com texto centralizado
+- Botão secundário branco `ENTRAR COM GOOGLE` — logo Google colorido + texto uppercase, border slate-100, hover `#364B59` border
+- Ambos os botões disparam `signInWithOAuth({ provider: "google" })` com `hd: "estaleiromaua.ind.br"`
+- Rodapé `ESTALEIRO MAUÁ S.A. · NAVAL 2026` — `text-[9px]` uppercase `letter-spacing: 0.4em`, `opacity-60`
+
+**Decisão de não incluir campos e-mail/senha:**
+O formulário de e-mail/senha do HTML de referência é um protótipo visual (autenticação fake com `password === "1"`). Como o sistema usa exclusivamente Google OAuth, os campos foram omitidos para evitar UX confuso com campos não-funcionais. Os dois botões Google refletem a hierarquia visual da referência (CTA primário escuro + alternativa branca).
