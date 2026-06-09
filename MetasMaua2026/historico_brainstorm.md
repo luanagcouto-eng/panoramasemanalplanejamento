@@ -917,3 +917,39 @@ Query do Supabase usava PostgREST self-join `superior:profiles!superior_id(...)`
 - Grid Período/Meta/Unidade ajustado para `grid-cols-[1fr_1.5fr_1fr]`
 - Build: sucesso (9,8 s compile, TypeScript OK, 15 rotas)
 - Commit: `83172ab`
+
+### Fix — UUID inválido ao criar usuário + seleção nos Selects — 2026-06-09
+
+**Problema reportado:** Ao tentar criar um novo usuário em `/admin/users`, mensagem "Invalid UUID" aparecia mesmo com campos preenchidos. Além disso, os Selects de departamento e superior não exibiam o valor selecionado corretamente.
+
+**Causas:**
+1. `z.string().uuid()` do Zod v4 verifica bits de versão e variante do RFC 4122. Placeholders inseridos manualmente (`aaaa0001-0000-0000-0000-000000000001`, `dddddd01-...`) não passam nesse check por não seguir o formato de versão padrão.
+2. `<SelectValue>` com `children` quebra o tracking interno de seleção do Radix UI (já conhecido do fix anterior em `goal-form-dialog`).
+
+**Correções:**
+
+| Arquivo | Mudança |
+|---------|---------|
+| `lib/schemas/user.ts` | Criado helper `flexUuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)` — aceita qualquer UUID bem-formatado sem verificar bits de versão/variante. Usado em `userUpdateSchema` e `userCreateSchema` para `department_id` e `superior_id` |
+| `lib/schemas/goal.ts` | `department_id`: `z.string().uuid()` → mesmo padrão regex `flexUuid` |
+| `user-create-dialog.tsx` | `<SelectValue>` substituído por `<span>` custom dentro do `<SelectTrigger>` com lookup por array (`departments.find(...)?.name` e `allProfiles.find(...)?.name`) — idêntico ao workaround do Radix já aplicado em outros dialogs |
+| `user-edit-dialog.tsx` | Mesmo fix de `<span>` custom nos Selects de departamento e superior |
+
+**Nav Admin expandido:**
+Luana (role `admin`) não via Minhas Metas, Minha Equipe e Relatórios pois essas rotas não incluíam `"admin"` na lista de roles do sidebar.
+
+| Arquivo | Mudança |
+|---------|---------|
+| `components/layout/app-sidebar.tsx` | `"Minhas Metas"` → roles `["director", "manager", "admin"]`; `"Minha Equipe"` → roles `["ceo", "director", "admin"]`; `"Relatórios"` → roles `["ceo", "director", "admin"]` |
+
+**Permissões Admin atualizadas:**
+
+| Role | Páginas visíveis |
+|---|---|
+| CEO | Visão Geral · Minha Equipe · Relatórios |
+| Diretor | Visão Geral · Minhas Metas · Minha Equipe · Relatórios |
+| Gestor | Visão Geral · Minhas Metas |
+| **Admin** | **Visão Geral · Minhas Metas · Minha Equipe · Relatórios · Metas · Usuários · Auditoria** |
+
+- Build: sucesso (18,4 s compile, TypeScript OK, 15 rotas)
+- Commit: `bac64dd`
