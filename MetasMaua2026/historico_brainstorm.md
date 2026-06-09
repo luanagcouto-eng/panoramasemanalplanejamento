@@ -953,3 +953,22 @@ Luana (role `admin`) não via Minhas Metas, Minha Equipe e Relatórios pois essa
 
 - Build: sucesso (18,4 s compile, TypeScript OK, 15 rotas)
 - Commit: `bac64dd`
+
+### Fix — "Erro ao salvar meta" ao criar/editar metas — 2026-06-09
+
+**Problema reportado:** Clicar em "Criar Meta" em `/admin/goals` retornava toast de erro mesmo com todos os campos preenchidos corretamente.
+
+**Diagnóstico:**
+Duas migrações distintas criaram funções de audit com schemas diferentes para a tabela `audit_log`. A coluna `entity_type` existe nas funções antigas mas **não existe** na tabela real:
+
+| Trigger | Função | Status |
+|---|---|---|
+| `goal_audit_trigger` (goals) | `log_goal_change()` | Referenciava `entity_type` (inexistente) → quebrava todo INSERT/UPDATE/DELETE em goals |
+| `goal_history_audit_trigger` | `log_goal_history_change()` | Mesma referência → quebrava `createGoalEntry` (lançar resultado) |
+| `goals_audit` | `audit_goals_change()` | Schema correto — mantido |
+
+**Correções no Supabase (sem mudança de código):**
+- Migration `drop_duplicate_broken_goal_audit_trigger`: DROP TRIGGER `goal_audit_trigger` + DROP FUNCTION `log_goal_change()`
+- Migration `fix_log_goal_history_change_entity_type`: CREATE OR REPLACE FUNCTION `log_goal_history_change()` removendo `entity_type`, incorporando o tipo na string de `action` (`INSERT_GOAL_HISTORY`, etc.)
+
+**Resultado:** goals INSERT/UPDATE/DELETE funcionando; lançamento de resultados em goal_history funcionando; audit_log gravando corretamente via `audit_goals_change`.
