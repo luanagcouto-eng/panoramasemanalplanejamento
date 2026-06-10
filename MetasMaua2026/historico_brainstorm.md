@@ -1971,3 +1971,47 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 | `team/_components/team-member-card.tsx` | `OP_SYMBOL`; coluna "Meta" exibe operador + valor |
 
 - TypeScript: zero erros
+
+---
+
+## Sessão 21 — 2026-06-10
+
+### Parte A — Operador da meta em todos os locais
+
+- Requisito: o símbolo do operador (`≥`, `≤`, `>`, `<`, `=`) definido na criação da meta deve aparecer ao lado de "Meta" em **toda** a aplicação, não só em `/team`
+- `lib/utils.ts`: `OP_SYMBOL` centralizado (`{ ">=": "≥", ">": ">", "<=": "≤", "<": "<", "=": "=" }`), removido das declarações locais duplicadas em `goal-card.tsx`, `goals-executive-table.tsx`, `goals-table.tsx` e `team-member-card.tsx` (agora todos importam de `@/lib/utils`)
+- Operador adicionado às demais telas que exibem "Meta":
+  - **Visão Geral**: `org-chart.tsx` (`GoalItem.operator`), `node-detail-sheet.tsx` (sheet de detalhe do nó) e `action-plans-section.tsx` (planos de ação) — `overview/page.tsx` agora seleciona `operator` na query de `goals` e repassa para os três
+  - **Relatórios**: `reports-view.tsx` (coluna "Meta" da tabela + `MOCK_ROWS` atualizados) e `reports/page.tsx` (`GoalRow.operator`, query inclui `operator`)
+  - **Lançamento de meta**: `goal-entry-dialog.tsx` recebe nova prop `operator` e exibe na linha "meta: ≥ 95%"; repassado por `goal-card.tsx`, `goals-executive-table.tsx` e `goal-history-list.tsx` (edição de lançamento)
+
+### Parte B — Foto de perfil em `/admin/users`
+
+- Requisito: permitir associar uma imagem de perfil (ex.: foto do Google) aos usuários cadastrados em `/admin/users`
+- Como o Google não expõe API pública para buscar foto de perfil por e-mail, optou-se por um **campo de URL manual com preview** (opção escolhida pelo usuário)
+- `lib/schemas/user.ts`: novo helper `avatarUrl` (aceita string vazia ou URL válida); campo `avatar_url` adicionado a `userUpdateSchema` e `userCreateSchema`
+- `lib/actions/users.ts`: `updateUserProfile` e `createUserProfile` persistem `avatar_url` (`null` se vazio) na tabela `profiles`
+- `admin/users/page.tsx`: query de `profiles` agora inclui `avatar_url`
+- `admin/_components/users-table.tsx`: coluna "Nome" passa a exibir `Avatar`/`AvatarFallback` (iniciais) ao lado do nome, usando `avatar_url`
+- `admin/_components/user-edit-dialog.tsx` e `user-create-dialog.tsx`: novo `FormField` "Foto de perfil (URL do Google ou outra fonte)" com `Input` + preview ao vivo em `Avatar`
+
+### Parte C — Novo menu "Minhas Metas"
+
+- Requisito: novo item de menu, posicionado após "Visão Geral", com o mesmo design system de "Atualização de Metas" (`/my-goals`), mostrando **apenas** as metas do próprio usuário (`owner_id = usuário atual`), independente do role — sem alterar a interface "Atualização de Metas"
+- Nova rota `app/(authenticated)/my-targets/page.tsx`: server component que sempre filtra `goals` por `owner_id = user.id` (mesmo para admin/CEO/diretor), monta `GoalCardData[]` e reutiliza `GoalsExecutiveTable` e `GoalAlertsPanel` **sem modificar** nenhum arquivo de `my-goals/_components/`
+- `components/layout/app-sidebar.tsx`: novo ícone `IconFlag`; novo item "Minhas Metas" (`/my-targets`) inserido em `NAV_ITEMS` logo após "Visão Geral", visível para `ceo`, `director`, `manager` e `admin`
+
+| Arquivo | Mudança |
+|---------|---------|
+| `lib/utils.ts` | `OP_SYMBOL` centralizado |
+| `my-goals/_components/goal-card.tsx`, `goals-executive-table.tsx`, `admin/_components/goals-table.tsx`, `team/_components/team-member-card.tsx` | Importam `OP_SYMBOL` de `lib/utils` |
+| `overview/_components/org-chart.tsx`, `node-detail-sheet.tsx`, `action-plans-section.tsx`, `overview/page.tsx` | Operador exibido junto à "Meta" |
+| `reports/_components/reports-view.tsx`, `reports/page.tsx` | Operador exibido na coluna "Meta" |
+| `my-goals/_components/goal-entry-dialog.tsx`, `goal-history-list.tsx` | Prop `operator` exibida em "meta: ≥ ..." |
+| `lib/schemas/user.ts`, `lib/actions/users.ts` | Campo `avatar_url` (validação + persistência) |
+| `admin/users/page.tsx`, `admin/_components/users-table.tsx`, `user-edit-dialog.tsx`, `user-create-dialog.tsx` | Campo "Foto de perfil" com preview + avatar na tabela |
+| `app/(authenticated)/my-targets/page.tsx` (novo) | Página "Minhas Metas" — reusa `GoalsExecutiveTable`, filtra sempre por `owner_id` |
+| `components/layout/app-sidebar.tsx` | Novo item "Minhas Metas" + `IconFlag`, após "Visão Geral" |
+
+- TypeScript: zero erros
+- ESLint: 0 erros (2 warnings pré-existentes do React Compiler em `form.watch`, mesmo padrão já usado em `goal-form-dialog.tsx`/`goal-entry-dialog.tsx`)
