@@ -2015,3 +2015,28 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - TypeScript: zero erros
 - ESLint: 0 erros (2 warnings pré-existentes do React Compiler em `form.watch`, mesmo padrão já usado em `goal-form-dialog.tsx`/`goal-entry-dialog.tsx`)
+
+---
+
+## Sessão 22 — 2026-06-10
+
+### Requisito implementado (`/my-targets` — "Minhas Metas")
+
+- Remover a opção de "Lançar resultado" e a visualização de histórico de lançamentos
+- Mostrar apenas os números (KPIs/tabela por período) e os planos de ação já criados
+
+### Mudanças
+
+- Novo componente `my-targets/_components/my-targets-table.tsx`: cópia simplificada de `goals-executive-table.tsx` (KPI cards + tabela por período, com filtro de título e período), **sem** linha expansível, **sem** `GoalHistoryList` e **sem** botão "+ Lançar resultado"
+- `my-targets/page.tsx`:
+  - Substitui `GoalsExecutiveTable` por `MyTargetsTable`
+  - Remove `GoalAlertsPanel` (alertas de lançamento pendente não fazem sentido numa tela sem ação de lançar)
+  - Calcula `actionPlans` a partir do `goal_history` já carregado (último registro com `action_plan` não vazio por meta, excluindo metas com progresso ≥ 100%) e renderiza com `ActionPlansSection` (reaproveitado de `overview/_components/`, sem alterações), `scopeId="all"`
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/(authenticated)/my-targets/_components/my-targets-table.tsx` (novo) | Tabela somente leitura: KPIs + linhas por período, sem expandir/lançar/histórico |
+| `app/(authenticated)/my-targets/page.tsx` | Usa `MyTargetsTable`; remove alertas; monta e exibe `actionPlans` via `ActionPlansSection` |
+
+- TypeScript: zero erros
+- ESLint: 0 erros
