@@ -2060,3 +2060,31 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - TypeScript: zero erros
 - ESLint: 0 erros
+
+---
+
+## Sessão 24 — 2026-06-10
+
+### Requisito implementado (`/overview` — cards de Diretoria)
+
+1. Remover o "preenchimento" gamificado dos nós do organograma (a barra colorida no topo do card adicionada na Sessão 6), mantendo apenas a barra de progresso explícita
+2. Substituir o ícone genérico (`Building2`) ao lado de "DIRETORIA" por ícones específicos da área, mantendo o fundo navy/10 do design system:
+   - Diretoria Comercial → vendas (`Handshake`)
+   - Diretoria de Operações → engrenagem (`Cog`)
+   - Diretoria RH / QSMS → pessoas/plantas industriais (`HardHat`)
+   - Gerência Financeiro → dinheiro (`Banknote`)
+   - Gerência GGCQ → compliance (`ShieldCheck`)
+
+### Mudanças
+
+- `overview/_components/org-node.tsx`:
+  - Removida a `<span>` absoluta de 1px no topo do card com `backgroundColor: fillColor` (e o `overflow-hidden` que existia só para clipar essa barra)
+  - Novo `DIRECTORATE_ICONS: Record<string, typeof Building2>` mapeando o nome exato da diretoria (`Diretoria Comercial`, `Diretoria de Operações`, `Diretoria RH / QSMS`, `Gerência Financeiro`, `Gerência GGCQ`) ao ícone correspondente; `Building2` mantido como fallback
+  - Barra de progresso (label "PROGRESSO" + percentual + barra) inalterada
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/(authenticated)/overview/_components/org-node.tsx` | Remove barra colorida do topo; ícones por diretoria via `DIRECTORATE_ICONS` |
+
+- TypeScript: zero erros
+- ESLint: 0 erros
