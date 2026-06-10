@@ -1951,3 +1951,23 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 | `globals.css` | `print-color-adjust: exact` no `body` (`@media print`) |
 
 - TypeScript: zero erros
+
+---
+
+## Sessão 20 — 2026-06-10
+
+### Requisito implementado (`/team` — tabela de metas dos subordinados)
+
+- Exibir o operador definido na criação da meta (`goals.operator`) ao lado do valor "Meta" na tabela
+
+### Mudanças
+
+- `team/page.tsx`: query de `goals` passa a trazer `operator`; campo repassado em `TeamGoalData`
+- `team-member-card.tsx`: novo `OP_SYMBOL` (`>= → ≥`, `<= → ≤`, etc., mesmo mapa de `goals-executive-table.tsx`); coluna "Meta" agora exibe o símbolo do operador antes do valor formatado (ex.: `≥ 95%`)
+
+| Arquivo | Mudança |
+|---------|---------|
+| `team/page.tsx` | Query inclui `operator`; `TeamGoalData.operator` |
+| `team/_components/team-member-card.tsx` | `OP_SYMBOL`; coluna "Meta" exibe operador + valor |
+
+- TypeScript: zero erros
