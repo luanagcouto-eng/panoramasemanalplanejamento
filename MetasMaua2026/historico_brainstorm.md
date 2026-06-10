@@ -1618,3 +1618,106 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 | `my-goals/_components/goals-executive-table.tsx` | OP_SYMBOL |
 
 - TypeScript: zero erros
+
+---
+
+## Sessão 12 — 2026-06-09
+
+### Requisitos implementados
+
+1. **Remoção da opacidade dos nós do organograma**
+2. **Filtro por Título em `/my-goals`**
+3. **Data e hora no histórico de lançamentos**
+4. **Correção de duplicação (quadruplicação) e overflow em `/my-goals`**
+
+---
+
+### 1. Organograma — `org-node.tsx`
+
+- Removida a classe condicional `opacity-60` aplicada a nós placeholder; todos os nós do organograma agora exibem cor plena.
+
+### 2. Filtro por título — `goals-executive-table.tsx`
+
+- Adicionado `Input` "Buscar por título..." + botão "✕ Limpar" acima do filtro de período
+- Estado `titleFilter`; cadeia de filtros: `byTitle` (substring case-insensitive no título) → `filtered` (período) → `grouped`
+- Mensagem de estado vazio mostra o termo buscado quando não há resultados
+
+### 3. Data e hora no histórico — `goal-history-list.tsx`
+
+- `toLocaleString("pt-BR", { day, month, year, hour, minute, hour12: false })` no lugar de `toLocaleDateString`
+- `whitespace-nowrap` no span da data para evitar quebra de linha
+
+### 4. Duplicação e overflow em `/my-goals`
+
+**Causa raiz da duplicação:** o join `owner:profiles!owner_id(name)` no SELECT de `goals` multiplicava as linhas após a criação da tabela `profile_departments` (ambiguidade de FK no PostgREST).
+
+**Causa raiz do overflow:** a view de admin renderizava um `GoalsExecutiveTable` completo por responsável (N tabelas empilhadas, cada uma com filtros, KPIs e tabelas por período).
+
+**Correção — `my-goals/page.tsx`:**
+- Removido o join; SELECT de `goals` passa a trazer apenas colunas próprias + `owner_id`
+- Para admin: query separada em `profiles` constrói `ownerNameMap` (id → nome)
+- `goalCards` recebe `ownerName: isAdmin ? ownerNameMap.get(g.owner_id) : undefined`
+- Única `<GoalsExecutiveTable goals={goalCards} />` para admin e não-admin (sem agrupamento por responsável)
+
+**Correção — `goal-card.tsx`:** `GoalCardData` troca `owner?: {name}[] | null` por `owner_id?: string` e `ownerName?: string`
+
+**Correção — `goals-executive-table.tsx`:** nome do responsável exibido em laranja abaixo do título da meta quando `ownerName` está presente
+
+| Arquivo | Mudança |
+|---------|---------|
+| `overview/_components/org-node.tsx` | Remove opacidade de placeholders |
+| `my-goals/_components/goals-executive-table.tsx` | Filtro de título + nome do responsável |
+| `my-goals/_components/goal-history-list.tsx` | Data + hora no histórico |
+| `my-goals/page.tsx` | Remove join, ownerNameMap, tabela única |
+| `my-goals/_components/goal-card.tsx` | `ownerName` no lugar de `owner` |
+
+- TypeScript: zero erros
+
+---
+
+## Sessão 13 — 2026-06-10
+
+### Requisitos implementados (Lançar Resultado em `/my-goals`)
+
+1. **Upload de evidência aceita CSV e XLSX** (além de PNG/JPG/PDF)
+2. **"Memória de cálculo" subdividida em: Fonte de dados, Critério, Fórmula utilizada**
+3. **Justificativa + Plano de ação (Método dos 5 Porquês) obrigatórios quando o valor lançado ultrapassa a meta**
+4. **Diálogo "Lançar resultado" ampliado** (`max-w-lg` → `max-w-2xl`, layout em grid 2 colunas)
+
+---
+
+### 1. Upload CSV/XLSX
+
+- Bucket `evidence` (Supabase Storage): `allowed_mime_types` ampliado para incluir `text/csv`, `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+- `goal-entry-dialog.tsx`: `accept` do input de arquivo e o texto de ajuda passam a incluir `.csv,.xlsx`
+
+### 2. Memória de cálculo subdividida
+
+- Substituído o único `Textarea` "Memória de cálculo" por três campos: **Fonte de dados**, **Critério**, **Fórmula utilizada** (Fonte/Critério lado a lado em grid 2 colunas; Fórmula em largura total)
+- DB: `goal_history` ganha colunas `data_source`, `criteria`, `formula_used` (mantém `notes` por compatibilidade, sem uso em novos lançamentos)
+
+### 3. Justificativa + 5 Porquês condicionais
+
+- `lib/schemas/goal-entry.ts`: `buildGoalEntrySchema(targetValue)` — `superRefine` que, quando `value > targetValue`, exige `justification` (≥10 chars), `action_plan` (≥10 chars) e os 5 campos de `five_whys` (≥3 chars cada)
+- `goal-entry-dialog.tsx`: bloco condicional (alerta âmbar) exibido quando o valor digitado ultrapassa a meta, com Justificativa, 5 inputs "1º Porquê"…"5º Porquê" e Plano de ação
+- `lib/actions/goal-history.ts`: `createGoalEntry` busca `target_value` da meta no servidor, valida com `buildGoalEntrySchema` e só persiste justificativa/5 porquês/plano de ação quando o valor realmente ultrapassa a meta
+- DB: `goal_history` ganha colunas `justification`, `five_whys` (jsonb), `action_plan`
+- `goal-history-list.tsx`: exibe Fonte de dados/Critério/Fórmula sempre; quando há justificativa, mostra bloco "⚠️ Meta ultrapassada" com justificativa, lista numerada dos 5 porquês e plano de ação
+
+### 4. Diálogo maior
+
+- `DialogContent`: `max-w-lg` → `max-w-2xl`
+- Período + Valor lado a lado; Fonte de dados + Critério lado a lado
+
+| Arquivo | Mudança |
+|---------|---------|
+| DB migration | `goal_history`: + `data_source`, `criteria`, `formula_used`, `justification`, `five_whys`, `action_plan` |
+| DB migration | bucket `evidence`: `allowed_mime_types` + CSV/XLSX |
+| `lib/schemas/goal-entry.ts` | Campos divididos + `buildGoalEntrySchema` (5 porquês condicional) |
+| `lib/actions/goal-history.ts` | Busca target_value, valida e persiste novos campos |
+| `types/index.ts` | `GoalHistory` com novos campos |
+| `my-goals/_components/goal-entry-dialog.tsx` | Reescrito: dialog maior, campos divididos, 5 porquês, upload CSV/XLSX |
+| `my-goals/_components/goal-history-list.tsx` | Exibe novos campos + alerta de meta ultrapassada |
+| `my-goals/page.tsx` | SELECT de `goal_history` inclui novas colunas |
+
+- TypeScript: zero erros
