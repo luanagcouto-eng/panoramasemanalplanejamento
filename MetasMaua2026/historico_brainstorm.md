@@ -1907,3 +1907,22 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 | `overview/_components/action-plans-section.tsx` (novo) | Lista de planos de ação em andamento, filtrada por `scopeId` |
 
 - TypeScript: zero erros
+
+---
+
+## Sessão 18 — 2026-06-10
+
+### Requisito implementado
+
+- Na visão escopada por Diretoria (ex.: "Diretoria de Operações"), o organograma criava barra de rolagem horizontal em telas menores
+
+### Causa e correção
+
+- `org-chart.tsx`: o container interno do organograma tinha `min-w-[920px]` fixo, usado para garantir espaço na grade `grid-cols-5` (Visão geral). Esse mínimo também era aplicado à visão escopada, forçando largura maior que a tela em dispositivos menores
+- Correção: `min-w-[920px]` agora só é aplicado quando `!scopedNode` (Visão geral); na visão escopada o container usa `w-full`, permitindo que a Diretoria + Gerências (em `flex`, com `flex-1 min-w-0`) encolham e se ajustem à largura disponível, sem rolagem horizontal
+
+| Arquivo | Mudança |
+|---------|---------|
+| `overview/_components/org-chart.tsx` | Container interno usa `w-full` na visão escopada e `min-w-[920px]` apenas na Visão geral |
+
+- TypeScript: zero erros
