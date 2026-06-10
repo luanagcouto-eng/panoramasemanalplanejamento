@@ -1858,3 +1858,52 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 | `overview/_components/node-detail-sheet.tsx` | Cabeçalho com ícone, badge de status, responsáveis em sub-departamentos/setores, "Atual/Meta" nas metas |
 
 - TypeScript: zero erros
+
+---
+
+## Sessão 17 — 2026-06-10
+
+### Requisitos implementados (organograma `/overview`, visão escopada por Diretoria)
+
+1. "Ver detalhes" no nível gerencial (Gerências)
+2. Remover os termos "Nível 1" e "Nível 2" do front-end
+3. Gerências lado a lado em uma única linha (encolhendo conforme necessário)
+4. Seção "Planos de ação em andamento" entre o organograma e a legenda
+
+---
+
+### 1. "Ver detalhes" nas Gerências
+
+- `org-chart.tsx`:
+  - `OrgChartSubDept` ganha os campos `director`, `isPlaceholder`, `goalsCount`, `goalsCompleted`, `goals: GoalItem[]` (mesmo formato de `OrgChartNodeData`), e `OrgChartSector` ganha `progress`
+  - `SubDeptCard` agora é um `<button>` clicável, com rodapé "Ver detalhes" (mesmo padrão visual do `OrgNode`), recebe `selected`/`onClick`
+  - A construção de `detail` (`NodeDetail`) passa a procurar tanto nos `nodes` (Diretorias) quanto, se houver `scopedNode`, em `scopedNode.subDepartments` — ao abrir uma Gerência, seus setores (Nível 3) são reaproveitados como `subDepartments` do `NodeDetailSheet` (com `progress`, exibidos como itens de lista em vez de chips)
+- `overview/page.tsx`: cada sub-departamento (`subDepartments`) passa a trazer `director`, `isPlaceholder`, `goalsCount`, `goalsCompleted`, `goals` (a partir de `org_chart_progress` e `goalsByDept`); cada setor (`sectors`) ganha `progress`
+
+### 2. Remoção de "Nível 1" / "Nível 2"
+
+- `org-chart.tsx`: `<SectionChip label="Nível 1 · Diretor" />` → `<SectionChip label="Diretoria" />`; `<SectionChip label="Nível 2 · Gerências" />` → `<SectionChip label="Gerências" />`
+
+### 3. Gerências em uma única linha
+
+- `org-chart.tsx`: o container das Gerências passa de `grid grid-cols-3 gap-4` para `flex flex-row gap-4`, com cada `SubDeptCard` envolvido por `flex-1 min-w-0` — todas as gerências ficam lado a lado na mesma linha, encolhendo proporcionalmente conforme a quantidade
+
+### 4. Planos de ação em andamento
+
+- Nova tabela consultada: `goal_history` (`id, goal_id, period, action_plan, recorded_at`), filtrando `action_plan IS NOT NULL` — preenchido em "Atualização de Metas" (Sessões 13–15)
+- `overview/page.tsx`:
+  - Para cada `goal_id`, mantém apenas a entrada de `action_plan` mais recente (`recorded_at`)
+  - Descarta metas já atingidas (`calcProgress(current_value, target_value) >= 100`)
+  - `directorateId` de cada plano via `findDirectorateId(goal.department_id)`, para respeitar o filtro de escopo
+- Novo componente `overview/_components/action-plans-section.tsx` (`ActionPlansSection`): lista os planos de ação (título da meta, período, badge de %, "Atual/Meta", barra de progresso, texto do plano de ação), filtrando por `scopeId`; exibe mensagem de estado vazio quando não há planos no escopo
+- Novo componente `overview/_components/org-chart-section.tsx` (`OrgChartSection`): wrapper client que centraliza o estado `scopeId` (antes interno ao `OrgChart`), renderiza o seletor de escopo (Admin/Diretor), o `OrgChart` e a `ActionPlansSection`, garantindo que ambos respeitem o mesmo filtro
+- `org-chart.tsx`: removido o `<Select>` de escopo e as props `directorateOptions`/`canCustomize`/`defaultScopeId` (agora vivem em `OrgChartSection`); `OrgChart` passa a receber `scopeId` como prop controlada; ao trocar de escopo, `selectedId` é resetado (ajuste de estado durante a renderização, sem `useEffect`)
+
+| Arquivo | Mudança |
+|---------|---------|
+| `overview/page.tsx` | Query `goal_history` (action plans); `goalsById`/`latestActionPlanByGoal`/`actionPlans`; sub-departamentos com `director/isPlaceholder/goalsCount/goalsCompleted/goals`; setores com `progress`; usa `<OrgChartSection>` |
+| `overview/_components/org-chart.tsx` | Tipos atualizados; `SubDeptCard` clicável com "Ver detalhes"; `detail` busca em Diretorias e Gerências; chips "Diretoria"/"Gerências" (sem "Nível X"); Gerências em `flex` (uma linha); recebe `scopeId` como prop |
+| `overview/_components/org-chart-section.tsx` (novo) | Wrapper client: estado `scopeId`, seletor de escopo, `OrgChart` + `ActionPlansSection` |
+| `overview/_components/action-plans-section.tsx` (novo) | Lista de planos de ação em andamento, filtrada por `scopeId` |
+
+- TypeScript: zero erros
