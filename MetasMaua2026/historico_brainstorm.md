@@ -1800,4 +1800,61 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - TypeScript: zero erros
 
+---
+
+## Sessão 16 — 2026-06-10
+
+### Requisitos implementados (organograma `/overview`)
+
+1. Trocar o rótulo "Presidência" por "CEO"
+2. Substituir "Em aberto" pelo nome do funcionário responsável (conforme cadastro em Admin → Usuários), onde houver
+3. Permitir que usuários **Admin** e **Diretor** customizem a visão do organograma, restringindo-a a uma diretoria (Nível 1 = Diretor, Nível 2 = Gerências)
+4. Melhorar a interface do painel de detalhamento de metas (`NodeDetailSheet`)
+
+---
+
+### 1. "Presidência" → "CEO"
+
+- `org-chart.tsx`: `<SectionChip label="Presidência" />` → `<SectionChip label="CEO" />`
+- `org-node.tsx`: rótulo da badge do card `{isCeo ? "Presidência" : "Diretoria"}` → `{isCeo ? "CEO" : "Diretoria"}`
+
+### 2. "Em aberto" → nome do responsável
+
+- **Diagnóstico**: `directorByDept` só considerava perfis com `role = 'director'` — mas nenhum usuário cadastrado tem essa role hoje (todas as 5 diretorias usam gestores com `role = 'manager'` atribuídos via `profiles.department_id`). Por isso todos os cards de diretoria sempre mostravam "Em aberto".
+- `overview/page.tsx`:
+  - A query de perfis deixa de filtrar por `role IN ('ceo','director')` e passa a buscar **todos os perfis** (`id, name, department_id, role`)
+  - Novo `responsibleByDept`: mapa `department_id → nome`, construído a partir de todos os perfis com `department_id` preenchido, com prioridade de papel (`director > manager > admin > ceo`) em caso de empate
+  - `directorByDept` removido — `node.director` agora vem de `responsibleByDept`
+  - Aplicado também aos sub-departamentos (Nível 2 / "Gerências") e setores (Nível 3), cada um ganhando um campo `responsible: string | null`
+- `org-chart.tsx` / `node-detail-sheet.tsx`: tipos `OrgChartSubDept`/`NodeDetailSubDept` e `OrgChartSector`/`NodeDetailSector` ganham `responsible: string | null`; "Em aberto" só aparece quando realmente não há ninguém alocado naquele departamento
+
+### 3. Customização do organograma (Admin / Diretor)
+
+- `overview/page.tsx`:
+  - Acesso à página passa a permitir `role IN ('ceo','admin','director')` (antes só `ceo`/`admin`)
+  - Novo helper `findDirectorateId(deptId)`: percorre `parent_id` em `org_chart_progress` até achar o departamento de topo (a diretoria) — usado para definir o escopo padrão de um Diretor
+  - `directorateOptions`: lista `{id, name}` das 5 diretorias de topo, para popular o seletor
+  - Novas props passadas a `<OrgChart>`: `directorateOptions`, `canCustomize` (`true` para `admin`/`director`), `defaultScopeId` (diretoria do próprio usuário, se `role === 'director'`)
+- `org-chart.tsx`:
+  - Novo `<Select>` (shadcn, canto superior direito) visível apenas se `canCustomize`: "Visão geral (todas as diretorias)" + uma opção por diretoria
+  - Estado local `scopeId` (default = `defaultScopeId ?? "all"`)
+  - **Visão geral** (`scopeId === "all"`): mantém o layout atual (CEO + grade das 5 diretorias)
+  - **Visão escopada** (`scopeId` = uma diretoria): novo layout —
+    - "Nível 1 · Diretor": card único da diretoria selecionada (clicável, abre o `NodeDetailSheet` como antes)
+    - "Nível 2 · Gerências": grade de novos cards `SubDeptCard` — um por sub-departamento, mostrando nome, responsável (gestor), barra de progresso e os setores (Nível 3) como chips com tooltip do responsável
+
+### 4. Melhorias visuais no `NodeDetailSheet`
+
+- Cabeçalho: ícone `Building2` em destaque ao lado do nome da diretoria/área
+- Card de progresso: adiciona badge de status (`Em conformidade` / `Em andamento` / `Em risco`, mesma lógica de `goals-executive-table`) e número grande do percentual
+- "Áreas subordinadas": agora mostra o responsável (gestor) de cada sub-departamento, além do progresso; setores exibidos como chips com `title` (tooltip) indicando o responsável
+- "Metas atribuídas": cada meta agora mostra "Atual: X / Meta: Y" (via `formatGoalValue`, novo campo `unit` trazido de `goals.unit`) além do badge de percentual e barra de progresso
+
+| Arquivo | Mudança |
+|---------|---------|
+| `overview/page.tsx` | Acesso para `director`; `responsibleByDept` (todos os perfis); `findDirectorateId`; `directorateOptions`; novas props para `OrgChart`; `goals.unit` na query |
+| `overview/_components/org-chart.tsx` | "CEO" no lugar de "Presidência"; tipos com `responsible`; seletor de escopo (`Select`); visão escopada (Nível 1/Nível 2) com `SubDeptCard` |
+| `overview/_components/org-node.tsx` | Badge `{isCeo ? "CEO" : "Diretoria"}` |
+| `overview/_components/node-detail-sheet.tsx` | Cabeçalho com ícone, badge de status, responsáveis em sub-departamentos/setores, "Atual/Meta" nas metas |
+
 - TypeScript: zero erros
