@@ -1926,3 +1926,28 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 | `overview/_components/org-chart.tsx` | Container interno usa `w-full` na visão escopada e `min-w-[920px]` apenas na Visão geral |
 
 - TypeScript: zero erros
+
+---
+
+## Sessão 19 — 2026-06-10
+
+### Requisito implementado (`/team` — "Minha Equipe")
+
+- Ao clicar em "Ver metas" de um subordinado, a lista de metas exibida deveria ser mais visual e ficar intuitiva quando impressa
+- Mantido o botão "Cobrar lançamento"
+
+### Mudanças
+
+- `team-member-card.tsx`:
+  - Substituída a lista (`<ul>`/`<li>`) de metas expandidas por uma **tabela** (`Meta | Período | Peso | Atual | Meta | Progresso | Status`), no mesmo padrão visual das tabelas de `goals-executive-table.tsx`
+  - Nova função local `statusInfo(pct, hasHistory)`: badge de status "Pendente" / "Em conformidade" / "Em andamento" / "Em risco" (mesma lógica/cores usadas em `my-goals`)
+  - Cada linha mostra barra de progresso colorida + percentual, além dos valores Atual/Meta formatados (`formatGoalValue`)
+  - "Cobrar lançamento" mantido sem alterações
+- `globals.css` (`@media print`): adicionado `print-color-adjust: exact` / `-webkit-print-color-adjust: exact` no `body`, para que as cores das barras de progresso e badges de status sejam preservadas na impressão/PDF (a tabela já herda os estilos de `table, th, td` definidos no bloco de impressão)
+
+| Arquivo | Mudança |
+|---------|---------|
+| `team/_components/team-member-card.tsx` | Lista de metas expandidas vira tabela com status, progresso e valores Atual/Meta |
+| `globals.css` | `print-color-adjust: exact` no `body` (`@media print`) |
+
+- TypeScript: zero erros
