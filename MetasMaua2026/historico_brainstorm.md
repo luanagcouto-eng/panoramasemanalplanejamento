@@ -1721,3 +1721,35 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 | `my-goals/page.tsx` | SELECT de `goal_history` inclui novas colunas |
 
 - TypeScript: zero erros
+
+---
+
+## Sessão 14 — 2026-06-10
+
+### Requisitos implementados
+
+1. **Histórico de lançamentos exibe o período de referência** (o mesmo selecionado em "Lançar resultado")
+2. **Diálogo "Lançar resultado" ampliado horizontalmente** — campos com mais espaçamento
+
+---
+
+### 1. Período no histórico
+
+- `my-goals/page.tsx`: SELECT de `goal_history` passa a incluir `period`
+- `goal-history-list.tsx`: `GoalHistoryEntry` ganha `period: string | null`; badge laranja com o rótulo do período (mesmo `PERIOD_LABELS` de "Anual (2026)", "1º Trimestre (T1)" etc. usado em `goal-entry-dialog.tsx`) ao lado do valor lançado
+
+### 2. Diálogo mais largo
+
+**Causa raiz:** o `DialogContent` padrão tem `sm:max-w-sm` (24rem); como essa classe vem depois na cascata CSS (media query), ela sobrepunha o `max-w-2xl` definido no componente em telas ≥640px — o diálogo ficava preso em ~384px de largura.
+
+**Correção:**
+- `goal-entry-dialog.tsx`: `className="max-w-2xl sm:max-w-3xl ..."` (768px em telas ≥640px)
+- Espaçamento entre campos: `space-y-4` → `space-y-5`; grids `gap-4` → `gap-x-8 gap-y-4`
+
+| Arquivo | Mudança |
+|---------|---------|
+| `my-goals/page.tsx` | SELECT de `goal_history` inclui `period` |
+| `my-goals/_components/goal-history-list.tsx` | Badge de período no histórico |
+| `my-goals/_components/goal-entry-dialog.tsx` | Dialog `sm:max-w-3xl` + mais espaçamento |
+
+- TypeScript: zero erros
