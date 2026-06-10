@@ -2126,27 +2126,51 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 ---
 
-## Sessão 26 — 2026-06-10
+## Sessão 27 — 2026-06-10
 
-### Requisitos implementados (`/overview`)
+### Requisitos implementados
 
-1. Aumentar o card do CEO no organograma — estava muito apertado/pequeno
-2. As tags "DIRETORIA COMERCIAL", "DIRETORIA DE OPERAÇÕES" etc. devem usar a mesma cor do nome do CEO ("Miro Arantes")
-3. O fundo dos ícones dos nós de nível 2 (Gerências) deve ser azul `#364B59` com 30% de opacidade
+1. Trocar o cinza de fundo de todas as páginas para `#E7EAEE`
+2. Corrigir bug em que, após selecionar um nome de usuário/departamento em um
+   `Select`, o campo passava a exibir um código genérico (id/UUID) em vez do nome
+3. Reduzir o tamanho da "Legenda de progresso" do organograma
+4. Adicionar um pequeno título ao organograma, no mesmo estilo do título usado
+   em "Planos de ação em andamento"
+5. Aumentar horizontalmente o card do CEO no organograma
 
 ### Mudanças
 
-- `overview/_components/org-node.tsx`:
-  - Card do CEO ganhou variante maior: padding `px-6 pt-6 pb-5` (vs `px-4 pt-4 pb-3.5`), ícone `w-12 h-12`/`w-6 h-6` (vs `w-9 h-9`/`w-5 h-5`), nome em `text-lg`, subtítulo em `text-sm`, percentual de progresso em `text-xl`, barra de progresso `h-3` (vs `h-2`)
-  - Tag com o nome da diretoria (ex.: "DIRETORIA COMERCIAL") passa de `text-[#364B59]/50` para `text-[#364B59]` sólido — mesma cor do nome "Miro Arantes" no card do CEO (que continua mostrando a tag "CEO" em `/50`)
+- `app/globals.css`: token `--color-maua-gray-50` (base de `--color-surface`/`bg-surface`,
+  usado no fundo de todas as páginas) alterado de `#F8F9FA` para `#E7EAEE`
+- **Bug do Select com código genérico**: causa raiz é o `<SelectValue />` do
+  `@base-ui/react/select` (`components/ui/select.tsx`), que resolve o rótulo
+  exibido a partir dos itens registrados no popup — quando o popup não está
+  montado (após fechar, depois de uma seleção), cai no fallback e mostra o
+  `value` bruto (id/UUID). Corrigido passando uma função como `children` de
+  `SelectValue`, que mapeia o id de volta para o nome usando as opções já
+  disponíveis no componente:
+  - Novo helper `labelFromOptions(value, options, fallback)` em `lib/utils.ts`
+  - `admin/_components/goal-form-dialog.tsx`: campos "Responsável" (`owner_id`)
+    e "Departamento / Setor" (`department_id`)
+  - `admin/_components/goals-table.tsx`: filtro "Responsável"
+  - `overview/_components/org-chart-section.tsx`: seletor de escopo (Diretoria)
+  - (Os selects "Superior imediato" em `user-edit-dialog.tsx`/`user-create-dialog.tsx`
+    já resolviam o nome corretamente via lookup manual — não precisaram de ajuste)
+- `overview/page.tsx`: `LegendSwatch` reduzido (`h-3 w-3` → `h-2 w-2`,
+  `gap-1.5` → `gap-1`); bloco "Legenda de progresso" com `text-xs` → `text-[11px]`,
+  `mb-2` → `mb-1.5`, `gap-4` → `gap-3`
 - `overview/_components/org-chart.tsx`:
-  - Wrapper do card do CEO: `max-w-64` → `max-w-sm` (320px → 384px)
-  - Ícone das gerências (nível 2, `SubDeptCard`): fundo `bg-[#364B59]/10` → `bg-[#364B59]/30`
+  - Adicionado título "Organograma" (ícone `Network` + `text-sm font-semibold
+    text-[#364B59]`), no mesmo estilo do título de "Planos de ação em andamento"
+  - Wrapper do card do CEO: `max-w-sm` → `max-w-lg` (384px → 512px)
 
 | Arquivo | Mudança |
 |---------|---------|
-| `app/(authenticated)/overview/_components/org-node.tsx` | Card do CEO maior; tags de diretoria com cor sólida `#364B59` |
-| `app/(authenticated)/overview/_components/org-chart.tsx` | Wrapper do CEO `max-w-sm`; ícone de gerência com fundo `#364B59/30` |
+| `app/globals.css` | `--color-maua-gray-50` → `#E7EAEE` (fundo de todas as páginas) |
+| `lib/utils.ts` | Novo helper `labelFromOptions` |
+| `admin/_components/goal-form-dialog.tsx`, `goals-table.tsx`, `overview/_components/org-chart-section.tsx` | `SelectValue` passa a resolver o nome via `labelFromOptions` |
+| `overview/page.tsx` | Legenda de progresso menor |
+| `overview/_components/org-chart.tsx` | Título "Organograma"; card do CEO `max-w-lg` |
 
 - TypeScript: zero erros
-- ESLint: 0 erros
+- ESLint: sem novos erros (warnings pré-existentes não relacionados)
