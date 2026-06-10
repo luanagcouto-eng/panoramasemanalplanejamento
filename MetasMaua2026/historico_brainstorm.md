@@ -1752,4 +1752,52 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 | `my-goals/_components/goal-history-list.tsx` | Badge de período no histórico |
 | `my-goals/_components/goal-entry-dialog.tsx` | Dialog `sm:max-w-3xl` + mais espaçamento |
 
+---
+
+## Sessão 15 — 2026-06-10
+
+### Requisito implementado
+
+**Editar e excluir lançamentos no "Histórico de Lançamentos"**
+
+### Banco de dados
+
+- Novas policies em `goal_history`:
+  - `goal_history_update`: permite `UPDATE` quando `recorded_by = auth.uid()` ou usuário é `admin`
+  - `goal_history_delete`: permite `DELETE` nas mesmas condições
+- (Não havia policies de update/delete antes — só insert e selects por papel)
+
+### `lib/actions/goal-history.ts`
+
+- Extraída `syncCurrentValue(supabase, goalId)`: recalcula `goals.current_value` a partir do lançamento mais recente (`order by recorded_at desc limit 1`), ou `0` se não houver mais lançamentos
+- `createGoalEntry` passa a usar `syncCurrentValue` (em vez de gravar `value` diretamente)
+- Nova `updateGoalEntry(entryId, raw)`: busca `goal_id` e `target_value` do lançamento/meta, valida com `buildGoalEntrySchema`, atualiza a linha em `goal_history` e resincroniza `current_value`
+- Nova `deleteGoalEntry(entryId)`: remove a linha e resincroniza `current_value`
+
+### `goal-entry-dialog.tsx`
+
+- Novo prop opcional `entry?: EditableGoalEntry`. Quando presente:
+  - `entryToFormValues()` pré-popula o formulário (período, valor, fonte/critério/fórmula, evidência, justificativa/5 porquês/plano de ação)
+  - Título vira "Editar lançamento", botão "Salvar alterações"
+  - `onSubmit` chama `updateGoalEntry(entry.id, values)` em vez de `createGoalEntry`
+
+### `goal-history-list.tsx`
+
+- Componente vira `"use client"`
+- Cada item do histórico ganha botões de ícone (lucide `Pencil`/`Trash2`):
+  - Editar → abre `GoalEntryDialog` pré-preenchido (`entry={editingEntry}`)
+  - Excluir → `confirm()` + `deleteGoalEntry`, com toast de sucesso/erro
+- Prop `unit` substituído por `goal: GoalHistoryGoalContext` (id, title, unit, target_value, period) — necessário para reabrir o dialog de edição com o contexto completo da meta
+
+| Arquivo | Mudança |
+|---------|---------|
+| DB migration | policies `goal_history_update` / `goal_history_delete` |
+| `lib/actions/goal-history.ts` | `syncCurrentValue`, `updateGoalEntry`, `deleteGoalEntry` |
+| `my-goals/_components/goal-entry-dialog.tsx` | Modo edição via prop `entry` |
+| `my-goals/_components/goal-history-list.tsx` | Botões editar/excluir, vira client component |
+| `my-goals/_components/goal-card.tsx` | Passa `goal` para `GoalHistoryList` |
+| `my-goals/_components/goals-executive-table.tsx` | Passa `goal` para `GoalHistoryList` |
+
+- TypeScript: zero erros
+
 - TypeScript: zero erros
