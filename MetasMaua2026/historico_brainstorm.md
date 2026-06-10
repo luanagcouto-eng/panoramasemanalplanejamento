@@ -2088,3 +2088,38 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - TypeScript: zero erros
 - ESLint: 0 erros
+
+---
+
+## Sessão 25 — 2026-06-10
+
+### Requisitos implementados (`/overview`)
+
+1. A tag acima do nome do card de cada diretoria passa a exibir o nome completo do setor em maiúsculas (ex.: "DIRETORIA COMERCIAL", "DIRETORIA DE OPERAÇÕES") em vez do texto genérico "DIRETORIA"
+2. Correção da hierarquia da Diretoria Comercial: existia um nó "Comercial" (Gerência) com Vendas, Orçamento e IT como subsetores — porém IT não pertence à Gerência Comercial, é uma gerência própria da Diretoria Comercial
+3. Remoção do texto auxiliar "Clique em uma diretoria para ver metas e áreas subordinadas"
+4. Layout do organograma 100% responsivo, sem barra de rolagem horizontal, em qualquer filtro de diretoria (bug recorrente — reportado pela 2ª vez, especialmente ao filtrar "Diretoria de Operações", que tem 5 gerências subordinadas)
+
+### Mudanças
+
+- **Banco de dados** (`departments`):
+  - `00000002-0000-0000-0000-000000000014` (`Comercial`) renomeado para `Gerência Comercial` (mantém Vendas e Orçamento como subsetores)
+  - `00000002-0000-0000-0000-000000000010` (`IT`) renomeado para `Gerência de TI` e movido de filho de "Comercial" para filho direto de `Diretoria Comercial` (passa a ser uma gerência irmã de "Gerência Comercial", sem subsetores)
+- `overview/_components/org-node.tsx`:
+  - A tag `text-[10px] uppercase` acima do nome agora exibe `label` (nome completo do setor) em vez do texto fixo "Diretoria"; para o card do CEO continua mostrando "CEO"
+  - O título em negrito com o nome do setor foi removido para os cards de diretoria (ficaria duplicado com a nova tag); mantido apenas no card do CEO, onde mostra o nome da pessoa
+- `overview/_components/org-chart.tsx`:
+  - Removido o parágrafo "Clique em uma diretoria para ver metas e áreas subordinadas"
+  - Removido o `min-w-[920px]` da visão geral (todas as diretorias) e o `flex flex-row` da seção de Gerências, que forçavam largura mínima maior que a tela e geravam barra de rolagem horizontal
+  - Grid de Diretorias agora é responsivo (`grid-cols-2` → `sm:grid-cols-3` → `lg:grid-cols-5`); linha e conectores decorativos só aparecem em `lg:` (única linha)
+  - Grid de Gerências agora é responsivo (`grid-cols-1` → `sm:grid-cols-2` → `lg:grid-cols-3`), permitindo que as 5 gerências da Diretoria de Operações quebrem em múltiplas linhas sem estourar a largura da tela
+  - Cards do CEO/Diretoria selecionada usam `w-full max-w-64` em vez de `w-64` fixo
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/(authenticated)/overview/_components/org-node.tsx` | Tag mostra nome do setor em maiúsculas; título duplicado removido para diretorias |
+| `app/(authenticated)/overview/_components/org-chart.tsx` | Remove texto auxiliar; grids responsivos sem `overflow-x`/`min-w` fixo |
+| Banco (`departments`) | "Comercial" → "Gerência Comercial"; "IT" → "Gerência de TI", movido para filho direto de Diretoria Comercial |
+
+- TypeScript: zero erros
+- ESLint: 0 erros
