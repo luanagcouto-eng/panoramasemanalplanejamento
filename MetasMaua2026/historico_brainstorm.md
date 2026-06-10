@@ -2040,3 +2040,23 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - TypeScript: zero erros
 - ESLint: 0 erros
+
+---
+
+## Sessão 23 — 2026-06-10
+
+### Bug corrigido (`/overview` — organograma)
+
+- "Gerência Manutenção" aparecia como cargo em aberto, mesmo com Alexandre Nora Leite já cadastrado em "Usuários" e atribuído a 2 setores simultaneamente (Gerência Produção + Gerência Manutenção via `profile_departments`)
+
+### Causa e correção
+
+- `overview/page.tsx` montava `responsibleByDept` usando apenas `profiles.department_id` (coluna única, que guarda só o **primeiro** departamento de `department_ids`). Para usuários com múltiplos setores, os demais departamentos ficavam sem responsável → `isPlaceholder: true`
+- Correção: query adicional em `profile_departments`; `responsibleByDept` agora itera por **todos** os departamentos de cada perfil (via `profile_departments`, com fallback para `department_id` quando não há registro na tabela de junção), mesmo padrão já usado em `admin/users/page.tsx`
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/(authenticated)/overview/page.tsx` | Query `profile_departments`; `responsibleByDept` considera todos os setores do perfil |
+
+- TypeScript: zero erros
+- ESLint: 0 erros
