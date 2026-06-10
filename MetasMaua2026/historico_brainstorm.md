@@ -2123,3 +2123,30 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - TypeScript: zero erros
 - ESLint: 0 erros
+
+---
+
+## Sessão 26 — 2026-06-10
+
+### Requisitos implementados (`/overview`)
+
+1. Aumentar o card do CEO no organograma — estava muito apertado/pequeno
+2. As tags "DIRETORIA COMERCIAL", "DIRETORIA DE OPERAÇÕES" etc. devem usar a mesma cor do nome do CEO ("Miro Arantes")
+3. O fundo dos ícones dos nós de nível 2 (Gerências) deve ser azul `#364B59` com 30% de opacidade
+
+### Mudanças
+
+- `overview/_components/org-node.tsx`:
+  - Card do CEO ganhou variante maior: padding `px-6 pt-6 pb-5` (vs `px-4 pt-4 pb-3.5`), ícone `w-12 h-12`/`w-6 h-6` (vs `w-9 h-9`/`w-5 h-5`), nome em `text-lg`, subtítulo em `text-sm`, percentual de progresso em `text-xl`, barra de progresso `h-3` (vs `h-2`)
+  - Tag com o nome da diretoria (ex.: "DIRETORIA COMERCIAL") passa de `text-[#364B59]/50` para `text-[#364B59]` sólido — mesma cor do nome "Miro Arantes" no card do CEO (que continua mostrando a tag "CEO" em `/50`)
+- `overview/_components/org-chart.tsx`:
+  - Wrapper do card do CEO: `max-w-64` → `max-w-sm` (320px → 384px)
+  - Ícone das gerências (nível 2, `SubDeptCard`): fundo `bg-[#364B59]/10` → `bg-[#364B59]/30`
+
+| Arquivo | Mudança |
+|---------|---------|
+| `app/(authenticated)/overview/_components/org-node.tsx` | Card do CEO maior; tags de diretoria com cor sólida `#364B59` |
+| `app/(authenticated)/overview/_components/org-chart.tsx` | Wrapper do CEO `max-w-sm`; ícone de gerência com fundo `#364B59/30` |
+
+- TypeScript: zero erros
+- ESLint: 0 erros
