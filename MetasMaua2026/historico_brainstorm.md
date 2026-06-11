@@ -2280,4 +2280,48 @@ mesmo tamanho visual (0–100% de largura).
 - TypeScript: zero erros
 - ESLint: sem novos erros (1 erro pré-existente e não relacionado em
   `team-comparison-table.tsx`, componente `SortIcon` declarado dentro do
-  componente de página — fora do escopo desta sessão)
+  componente de página — fora do escopo desta sessão, corrigido na seção
+  abaixo)
+
+### Ajuste adicional — % de atingimento 0% quando a meta ainda não tem lançamento
+
+O usuário reportou que metas `<=`/`<` sem nenhum lançamento em
+`goal_history` (campo `current_value` ainda no padrão `0` do banco) exibiam
+"100%"/"verde" (ou, após o ajuste anterior, "200%") mesmo sem nenhum
+resultado reportado. Pedido: "Caso não tenha meta lançada não coloque 100% o
+valor de atingimento. Deixe como 0%."
+
+- `lib/utils.ts`: `calcProgress(current, target, operator, hasHistory = true)`
+  agora recebe um 4º parâmetro `hasHistory`; se `false`, retorna `0`
+  diretamente (antes de aplicar a fórmula `<=`/`<`, que daria 200% para
+  `current_value = 0`)
+- Atualizados todos os pontos de uso para passar `hasHistory` (via
+  `goal.history.length > 0`, `goalsWithHistory.has(g.id)` ou
+  `g.has_history`): `goal-card.tsx`, `goals-executive-table.tsx`,
+  `my-targets-table.tsx`, `team-member-card.tsx`, `reports/page.tsx`,
+  `my-goals/page.tsx` (alertas), `overview/page.tsx` (progresso por meta no
+  organograma — nova consulta a `goal_history` para montar o Set)
+- `admin/goals/page.tsx` / `admin/_components/goals-table.tsx`: passam a
+  buscar `goal_history` e anexar `has_history` a cada `GoalRow`, usado no
+  cálculo e na ordenação da coluna "Progresso"
+- **Migration `20260611_progress_no_history_zero.sql`** (aplicada ao projeto
+  Supabase `hkguphmtiwwjjnadnbdq`): `org_chart_progress`/`company_progress`
+  passam a tratar metas sem nenhuma linha em `goal_history` como contribuição
+  `0` para `progress_pct` e a excluí-las de `goals_completed` (antes, uma
+  meta `<=`/`<` sem lançamento era contada como "concluída" por
+  `0 <= target_value`)
+
+- TypeScript: zero erros
+- ESLint: zero erros, zero warnings novos
+
+### Correção do erro de lint pré-existente em TeamComparisonTable
+
+Autorizado pelo usuário a corrigir o `react-hooks/static-components`
+identificado na sessão anterior.
+
+- `team-comparison-table.tsx`: `SortIcon` movido para escopo de módulo,
+  recebendo `sortKey`/`sortDir` como props em vez de fechar sobre o estado do
+  componente `TeamComparisonTable`
+
+- TypeScript: zero erros
+- ESLint: zero erros, zero warnings novos
