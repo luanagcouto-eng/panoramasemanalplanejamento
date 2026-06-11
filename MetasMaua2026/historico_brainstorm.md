@@ -2575,3 +2575,26 @@ agora exibe `#FFC067`.
 | `my-goals/_components/goal-card.tsx` | Troféu só para 90%–99%; tipo `GoalCardData` ganha `department_id`/`sector` |
 | `my-goals/page.tsx` | Busca `department_id` das metas e `sector` dos departamentos |
 | `my-goals/_components/goals-executive-table.tsx` | Chip de setor ao lado do título da meta |
+
+---
+
+## Sessão 35 — 2026-06-11
+
+**Pedido do usuário:** na página de relatórios
+(`/reports`), remover a barra de progresso da coluna "Progresso", mantendo
+apenas o badge de porcentagem.
+
+**Implementação:**
+- `reports/_components/reports-view.tsx`: removida a barra horizontal
+  (`<div>` com `progressBarPct(r.progress_pct)` e cor `#F18213`) e o
+  `<div>` flex que a envolvia, restando apenas o `<span>` com o badge de
+  porcentagem na célula da coluna "Progresso".
+- Removida a importação não utilizada de `progressBarPct` de `lib/utils`.
+
+**Validação:** `tsc --noEmit` e `eslint` sem erros. Teste visual via
+`next dev --webpack` + Playwright: coluna "Progresso" em `/reports` agora
+exibe apenas o badge percentual, sem a barra abaixo.
+
+| Arquivo | Mudança |
+|---------|---------|
+| `reports/_components/reports-view.tsx` | Removida barra de progresso da coluna "Progresso"; removido import `progressBarPct` |
