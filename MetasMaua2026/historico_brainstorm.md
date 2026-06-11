@@ -2416,3 +2416,42 @@ comentários abaixo do campo 'Fórmula utilizada'."
 - ESLint: zero erros, zero warnings novos (2 warnings pré-existentes e não
   relacionados: `react-hooks/incompatible-library` em `form.watch` e
   `no-unused-vars` em `audit-log-view.tsx`)
+
+---
+
+## Sessão 30 — 2026-06-11
+
+**Pedido do usuário:** "Marcello Rômulo passará a ser responsável pelo
+Gerência RH e Gerência QSMS"
+
+**Contexto:** na Sessão 29, a antiga "Diretoria RH / QSMS" foi removida (junto
+com o perfil placeholder de Marcello Romulo, que era seu diretor), e suas duas
+gerências (RH e QSMS) passaram a ficar sob a "Diretoria Comercial
+/Administrativa", sem nenhum responsável atribuído.
+
+**Implementação:**
+- Nova migration `20260611_add_marcello_romulo_rh_qsms.sql`:
+  - Cria perfil placeholder "Marcello Rômulo" (`role: manager`,
+    `is_placeholder: true`, `email: marcello.romulo@estaleiromaua.ind.br`,
+    `department_id` = Gerência RH, `superior_id` = Hensel da Silva Gonçalves
+    — diretor da Diretoria Comercial /Administrativa)
+  - Vincula o novo perfil às duas gerências (Gerência RH e Gerência de QSMS)
+    via `profile_departments`, usando o mecanismo já existente de
+    "responsável atribuído via Usuários" (`responsibleByDept` em
+    `overview/page.tsx`), que suporta um perfil responder por múltiplos
+    departamentos
+  - Restaura o `role_config` (`email_pattern: "marcello.r%"`, `default_role:
+    manager`, `department_id`: Gerência RH, `display_name: "Gerente RH"`)
+    para provisionamento automático caso ele faça login
+
+**Validação:** sem alterações de código (a lógica de resolução de
+responsável já suportava múltiplos departamentos por perfil), portanto sem
+necessidade de `tsc`/`eslint`. Teste visual via servidor `next dev --webpack`
++ Playwright (autenticação por `admin.generateLink` + `verifyOtp`, técnica
+estabelecida na Sessão 29): no organograma, ao abrir o detalhe da "Diretoria
+Comercial /Administrativa", as áreas subordinadas "Gerência RH" e "Gerência de
+QSMS" agora exibem "Marcello Romulo" como responsável.
+
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/migrations/20260611_add_marcello_romulo_rh_qsms.sql` | Cria perfil de Marcello Rômulo e vincula via `profile_departments` à Gerência RH e Gerência de QSMS; restaura `role_config` |
