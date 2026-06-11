@@ -2598,3 +2598,24 @@ exibe apenas o badge percentual, sem a barra abaixo.
 | Arquivo | Mudança |
 |---------|---------|
 | `reports/_components/reports-view.tsx` | Removida barra de progresso da coluna "Progresso"; removido import `progressBarPct` |
+
+---
+
+## Sessão 36 — 2026-06-11
+
+**Pedido do usuário:** em "Minha Equipe" (`/team`), remover a coluna "Barra"
+do "Comparativo da Equipe".
+
+**Implementação:**
+- `team/_components/team-comparison-table.tsx`: removida a coluna "Barra"
+  (cabeçalho `<TableHead>Barra</TableHead>` e a célula com a barra de
+  progresso de cada linha).
+- Removida a importação não utilizada de `progressBarPct` de `lib/utils`.
+
+**Validação:** `tsc --noEmit` e `eslint` sem erros. Teste visual via
+`next dev --webpack` + Playwright: tabela "Comparativo da Equipe" em
+`/team` agora termina na coluna "Consolidado", sem a coluna "Barra".
+
+| Arquivo | Mudança |
+|---------|---------|
+| `team/_components/team-comparison-table.tsx` | Removida coluna "Barra"; removido import `progressBarPct` |
