@@ -2455,3 +2455,32 @@ QSMS" agora exibem "Marcello Romulo" como responsável.
 | Arquivo | Mudança |
 |---------|---------|
 | `supabase/migrations/20260611_add_marcello_romulo_rh_qsms.sql` | Cria perfil de Marcello Rômulo e vincula via `profile_departments` à Gerência RH e Gerência de QSMS; restaura `role_config` |
+
+---
+
+## Sessão 31 — 2026-06-11
+
+**Pedido do usuário:** ajustar a linha conectora horizontal do organograma,
+que se estendia além do último card de diretoria (screenshot mostrava a
+linha indo até a borda direita, depois da "Gerência GGCQ", sem nenhum card
+ali).
+
+**Causa raiz:** em `org-chart.tsx`, a linha horizontal da seção
+"Diretorias" usava `left-[10%] right-[10%]` fixos, assumindo sempre 5
+diretorias preenchendo o `grid-cols-5`. Com apenas 4 diretorias (após a
+fusão da Sessão 29), a linha ultrapassava o último card.
+
+**Implementação:**
+- `overview/_components/org-chart.tsx`: calcula `directorateLineRight`
+  dinamicamente a partir de `nodes.length` (`occupiedColumns`), de modo
+  que a linha termine sempre no centro do último card ocupado, em vez de
+  assumir 5 colunas fixas.
+
+**Validação:** `tsc --noEmit` e `eslint` sem erros. Teste visual via
+`next dev --webpack` + Playwright (mesma técnica de autenticação das
+Sessões 29/30): linha agora termina corretamente acima de "Gerência GGCQ"
+(última das 4 diretorias).
+
+| Arquivo | Mudança |
+|---------|---------|
+| `overview/_components/org-chart.tsx` | Linha conectora das diretorias dimensionada conforme a quantidade real de diretorias |
