@@ -2201,3 +2201,54 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - TypeScript: zero erros
 - ESLint: sem novos erros (warnings pré-existentes não relacionados)
+
+---
+
+## Sessão 28 — 2026-06-11
+
+### Requisitos implementados
+
+1. Remover a "Análise de causa raiz — Método dos 5 Porquês" do diálogo de
+   lançamento de metas (`/my-goals`), mantendo apenas Justificativa e Plano
+   de ação quando o valor ultrapassa a meta
+2. Corrigir o cálculo de "% Atingimento" para metas com operador "menor ou
+   igual" (`<=`/`<`), aplicando a fórmula de mercado padrão:
+   `Atingimento = 1 + (Meta − Realizado) / Meta`, limitada a [0%, 100%], de
+   forma que um resultado pior que a meta fique abaixo de 100% e não seja
+   exibido como "EM CONFORMIDADE"
+
+### Mudanças
+
+- **Remoção dos 5 Porquês** (`my-goals/_components/goal-entry-dialog.tsx`,
+  `lib/schemas/goal-entry.ts`):
+  - Removido o bloco `<div>` com os 5 campos `five_whys.${i}` e a constante
+    `FIVE_WHYS_INDEXES` do diálogo (`exceedsTarget` agora mostra só
+    Justificativa → Plano de ação)
+  - Removida a validação `superRefine` que exigia os 5 porquês ao
+    ultrapassar a meta (campo `five_whys` permanece no schema/dados como
+    opcional, sem uso na UI)
+
+- **Fórmula de atingimento para metas "≤"** (`lib/utils.ts`):
+  - `calcProgress(current, target, operator)` agora calcula, para
+    `operator IN ('<=', '<')`:
+    `pct = (1 + (target - current) / target) * 100`, arredondado e limitado
+    entre 0 e 100
+  - Exemplo: meta ≤ 29,76h, realizado 36h → `1 + (29,76-36)/29,76 ≈ 0,79` →
+    **79%** (antes exibia 100% / "EM CONFORMIDADE")
+
+- **Migration `20260611_fix_progress_operator.sql`** (aplicada ao projeto
+  Supabase `hkguphmtiwwjjnadnbdq`): `org_chart_progress` e
+  `company_progress` passam a usar a mesma fórmula para metas `<=`/`<`,
+  tanto no `progress_pct` ponderado quanto no `goals_completed`
+  (antes: `current_value >= target_value` para todas as metas, mesmo as
+  "menor ou igual")
+
+| Arquivo | Mudança |
+|---------|---------|
+| `my-goals/_components/goal-entry-dialog.tsx` | Remove bloco "5 Porquês" e constante `FIVE_WHYS_INDEXES` |
+| `lib/schemas/goal-entry.ts` | Remove validação obrigatória dos 5 porquês |
+| `lib/utils.ts` | Nova fórmula de `calcProgress` para operador `<=`/`<` |
+| `supabase/migrations/20260611_fix_progress_operator.sql` | Views `org_chart_progress`/`company_progress` corrigidas para metas `<=`/`<` |
+
+- TypeScript: zero erros
+- ESLint: sem novos erros (warnings pré-existentes não relacionados)
