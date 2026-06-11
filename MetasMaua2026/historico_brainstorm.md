@@ -2533,3 +2533,45 @@ agora exibe `#FFC067`.
 | Arquivo | Mudança |
 |---------|---------|
 | `overview/_components/org-chart-section.tsx` | Cor do swatch "33% – 66%" → `#FFC067` |
+
+---
+
+## Sessão 34 — 2026-06-11
+
+**Pedido do usuário:**
+1. Remover o ícone de troféu (🏆) ao lado das metas que atingiram 100%.
+2. Em "Atualização de Metas" (`/my-goals`), exibir o setor ao lado do
+   título da meta.
+
+**Implementação:**
+- Troféu agora só aparece para `90% <= pct < 100%` (antes era `pct >= 90`),
+  em todos os locais que usam esse padrão:
+  - `team/_components/team-member-card.tsx` (badge "Consolidado" do card e
+    título de cada meta na tabela expandida)
+  - `team/_components/team-comparison-table.tsx` (coluna "Consolidado" —
+    caso do screenshot, "106% 🏆" → "106%")
+  - `reports/_components/reports-view.tsx` (coluna "Atingimento")
+  - `my-goals/_components/goal-card.tsx` (componente não utilizado
+    atualmente, mantido consistente)
+- `my-goals/page.tsx`: query de `goals` passou a buscar `department_id`;
+  nova consulta a `departments (id, sector)` monta um mapa
+  `sectorByDept`, adicionado como campo `sector` em `GoalCardData`.
+- `my-goals/_components/goals-executive-table.tsx`: cada linha da tabela
+  exibe um chip com o setor (`bg-[#364B59]/8`, uppercase) ao lado do
+  título da meta.
+
+**Validação:** `tsc --noEmit` e `eslint` sem erros. Teste visual via
+`next dev --webpack` + Playwright:
+- `/my-goals`: títulos agora exibem chips "SUPRIMENTOS", "QUALIDADE",
+  "PLANEJAMENTO" etc.
+- `/team`: "Alexander Domingues Araújo" com 106% consolidado não exibe
+  mais o troféu na coluna "Consolidado".
+
+| Arquivo | Mudança |
+|---------|---------|
+| `team/_components/team-member-card.tsx` | Troféu só para 90%–99% (2 ocorrências) |
+| `team/_components/team-comparison-table.tsx` | Troféu só para 90%–99% |
+| `reports/_components/reports-view.tsx` | Troféu só para 90%–99% |
+| `my-goals/_components/goal-card.tsx` | Troféu só para 90%–99%; tipo `GoalCardData` ganha `department_id`/`sector` |
+| `my-goals/page.tsx` | Busca `department_id` das metas e `sector` dos departamentos |
+| `my-goals/_components/goals-executive-table.tsx` | Chip de setor ao lado do título da meta |
