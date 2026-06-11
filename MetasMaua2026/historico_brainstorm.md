@@ -2325,3 +2325,23 @@ identificado na sessão anterior.
 
 - TypeScript: zero erros
 - ESLint: zero erros, zero warnings novos
+
+### Ajuste adicional — Campo de Comentários no lançamento de resultado
+
+Pedido: "Na interface 'Lançar Resultado' na página adicione um campo de
+comentários abaixo do campo 'Fórmula utilizada'."
+
+- `lib/schemas/goal-entry.ts`: novo campo opcional `notes` (máx. 1000
+  caracteres) em `goalEntryBaseSchema`
+- `goal-entry-dialog.tsx`: novo `FormField "Comentários"` (textarea,
+  opcional) logo após "Fórmula utilizada"; `EditableGoalEntry`, `DEFAULTS` e
+  `entryToFormValues()` atualizados para incluir `notes`
+- `lib/actions/goal-history.ts`: `createGoalEntry`/`updateGoalEntry` passam a
+  persistir `notes` em `goal_history`
+- Reaproveitada a coluna `notes` já existente em `goal_history` (não
+  utilizada até então no formulário, mas já exibida no histórico em
+  `goal-history-list.tsx`) — sem necessidade de nova migration
+
+- TypeScript: zero erros
+- ESLint: zero erros, zero warnings novos (1 warning pré-existente e não
+  relacionado de `react-hooks/incompatible-library` em `form.watch`)
