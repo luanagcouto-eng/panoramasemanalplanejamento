@@ -2484,3 +2484,31 @@ Sessões 29/30): linha agora termina corretamente acima de "Gerência GGCQ"
 | Arquivo | Mudança |
 |---------|---------|
 | `overview/_components/org-chart.tsx` | Linha conectora das diretorias dimensionada conforme a quantidade real de diretorias |
+
+---
+
+## Sessão 32 — 2026-06-11
+
+**Pedido do usuário:** aumentar o tamanho dos cards de diretoria (nível 2
+do organograma) de forma que fiquem todos centralizados — o grid fixo de 5
+colunas deixava os 4 cards atuais menores que o necessário e desalinhados
+à esquerda, com uma coluna vazia à direita.
+
+**Implementação:**
+- `overview/_components/org-chart.tsx`: o grid das diretorias agora usa
+  `lg:grid-cols-{N}`, onde `N` é o número real de diretorias (1 a 5),
+  através de um mapa de classes literais (`DIRECTORATE_LG_COLS`) — os
+  cards passam a ocupar toda a largura disponível, ficando maiores e
+  centralizados.
+- A linha conectora horizontal (ajustada na Sessão 31) foi recalculada
+  para `directorateLinePct = (0.5 / N) * 100`, indo do centro do primeiro
+  ao centro do último card, simétrica em relação às bordas.
+
+**Validação:** `tsc --noEmit` e `eslint` sem erros. Teste visual via
+`next dev --webpack` + Playwright (mesma técnica das sessões anteriores):
+os 4 cards agora preenchem toda a largura da seção, com a linha conectora
+alinhada ao centro de cada card.
+
+| Arquivo | Mudança |
+|---------|---------|
+| `overview/_components/org-chart.tsx` | Grid de diretorias com colunas dinâmicas (`lg:grid-cols-N`) e linha conectora recalculada |
