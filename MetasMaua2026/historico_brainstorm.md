@@ -2512,3 +2512,24 @@ alinhada ao centro de cada card.
 | Arquivo | Mudança |
 |---------|---------|
 | `overview/_components/org-chart.tsx` | Grid de diretorias com colunas dinâmicas (`lg:grid-cols-N`) e linha conectora recalculada |
+
+---
+
+## Sessão 33 — 2026-06-11
+
+**Pedido do usuário:** trocar a cor da legenda do range "33% – 66%" de
+amarelo (`#F9E79F`) para `#FFC067`.
+
+**Implementação:**
+- `overview/_components/org-chart-section.tsx`: `LegendSwatch` do range
+  "33% – 66%" alterado de `#F9E79F` para `#FFC067` (mudança restrita à
+  legenda, conforme pedido — `--color-goal-mid` em `globals.css`, usado
+  nas barras de progresso/badges, não foi alterado).
+
+**Validação:** `tsc --noEmit` e `eslint` sem erros. Teste visual via
+`next dev --webpack` + Playwright: swatch do meio da "Legenda de progresso"
+agora exibe `#FFC067`.
+
+| Arquivo | Mudança |
+|---------|---------|
+| `overview/_components/org-chart-section.tsx` | Cor do swatch "33% – 66%" → `#FFC067` |
