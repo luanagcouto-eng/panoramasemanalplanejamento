@@ -2252,3 +2252,32 @@ ALTER TABLE goal_history ADD COLUMN IF NOT EXISTS period text;
 
 - TypeScript: zero erros
 - ESLint: sem novos erros (warnings pré-existentes não relacionados)
+
+### Ajuste adicional — % de atingimento sem limite de 0–100%
+
+O usuário pediu para não limitar o "% de atingimento" exibido entre 0% e
+100%: o valor deve poder ser negativo (resultado muito pior que a meta) ou
+maior que 100% (overachievement), mas a **barra de progresso** deve manter o
+mesmo tamanho visual (0–100% de largura).
+
+- `lib/utils.ts`:
+  - `calcProgress()` não aplica mais `Math.min`/`Math.max` — retorna o
+    percentual real, podendo ser negativo ou > 100%
+  - Novo helper `progressBarPct(pct)` = `Math.max(0, Math.min(100, pct))`,
+    usado apenas para a largura das barras
+- `components/ui/progress-ring.tsx`: o anel continua limitado visualmente
+  (`clamped`), mas o texto central agora mostra o `pct` real (sem limite)
+- Atualizados para usar `progressBarPct()` na largura da barra, mantendo o
+  texto/badge com o valor real: `org-chart.tsx`, `org-node.tsx`,
+  `node-detail-sheet.tsx`, `action-plans-section.tsx`,
+  `goals-executive-table.tsx`, `my-targets-table.tsx`,
+  `team-member-card.tsx`, `team-comparison-table.tsx`, `reports-view.tsx`
+- **Migration `20260611_uncap_progress_pct.sql`** (aplicada ao projeto
+  Supabase `hkguphmtiwwjjnadnbdq`): remove o `GREATEST(0, LEAST(1, ...))`
+  das views `org_chart_progress`/`company_progress` para metas `<=`/`<`,
+  espelhando o `calcProgress()` sem limite
+
+- TypeScript: zero erros
+- ESLint: sem novos erros (1 erro pré-existente e não relacionado em
+  `team-comparison-table.tsx`, componente `SortIcon` declarado dentro do
+  componente de página — fora do escopo desta sessão)
