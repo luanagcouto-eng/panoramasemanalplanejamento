@@ -2345,3 +2345,74 @@ comentários abaixo do campo 'Fórmula utilizada'."
 - TypeScript: zero erros
 - ESLint: zero erros, zero warnings novos (1 warning pré-existente e não
   relacionado de `react-hooks/incompatible-library` em `form.watch`)
+
+---
+
+## Sessão 29 — 2026-06-11
+
+### Requisitos implementados
+
+1. Renomear "Diretoria Comercial" para "Diretoria Comercial /Administrativa",
+   passando a englobar Comercial, Comercial/Orçamentos, TI, RH e QSMS
+2. Aumentar o tamanho das fontes em todas as páginas (público-alvo 50+)
+3. Melhorar o contraste dos nós do organograma em `/overview`, mantendo o
+   design system
+
+### Mudanças
+
+- **Reorganização de diretorias** — usuário optou por "mesclar tudo na
+  Comercial/Adm": mover Gerência RH e Gerência de QSMS para dentro da
+  diretoria comercial e remover por completo a antiga "Diretoria RH / QSMS"
+  (que não tinha diretor real, apenas o placeholder Marcello Romulo)
+  - **Migration `20260611_merge_comercial_administrativa.sql`** (aplicada ao
+    projeto Supabase `hkguphmtiwwjjnadnbdq`):
+    - Move `Gerência RH` e `Gerência de QSMS` para `parent_id` da Diretoria
+      Comercial
+    - Renomeia "Diretoria Comercial" → "Diretoria Comercial /Administrativa"
+    - Remove o `profile_departments`/`profiles` do diretor placeholder
+      Marcello Romulo e o `role_config` (`email_pattern: "marcello.r%"`,
+      "Diretor RH/EHS") que o provisionava
+    - Remove a antiga "Diretoria RH / QSMS" (sem filhos nem responsável)
+  - `overview/_components/org-node.tsx`: `DIRECTORATE_ICONS` atualizado —
+    chave "Diretoria Comercial /Administrativa" com ícone `Handshake`;
+    removida a entrada/ícone (`HardHat`) da extinta "Diretoria RH / QSMS"
+
+- **Tipografia ampliada (público 50+)**:
+  - `app/globals.css`: escala `--text-xs` … `--text-4xl` (e respectivos
+    `--line-height`) sobrescrita no `@theme`, cada degrau ~1px maior que o
+    padrão do Tailwind (ex.: `--text-base` 16px → 17px, `--text-2xl` 24px →
+    26px), preservando as proporções — sem alterar `font-size` do `html`
+    para não distorcer espaçamentos baseados em `rem`
+  - Todas as classes `text-[Npx]` (textos arbitrários/micro, ~9–22px)
+    incrementadas em +1px em 13 arquivos: `goal-form-dialog.tsx`,
+    `users-table.tsx`, `audit-log-view.tsx`, `goal-history-list.tsx`,
+    `goals-executive-table.tsx`, `my-targets-table.tsx`,
+    `action-plans-section.tsx`, `node-detail-sheet.tsx`,
+    `org-chart-section.tsx`, `org-chart.tsx`, `org-node.tsx`,
+    `team-member-card.tsx`, `login-card.tsx`
+
+- **Contraste do organograma (`/overview`)** — opacidades de
+  `text-[#364B59]/NN` e bordas aumentadas para melhor legibilidade,
+  mantendo a paleta navy/laranja existente:
+  - `org-node.tsx`: ícone do avatar `/60`→`/75`, borda do círculo `/10`→`/15`,
+    rótulo "CEO" `/50`→`/70`, subtítulo placeholder `/40`→`/65`, subtítulo do
+    CEO `/60`→`/75`, label "Progresso" e contagem de metas `/40`→`/65`,
+    borda e texto do CTA "Ver detalhes" `/10`→`/15` e `/50`→`/70`
+  - `org-chart.tsx`: `SectionChip` `text-slate-400`→`text-slate-500`; ícone
+    do `SubDeptCard` (fundo `/30`→`/10`, ícone `/60`→`/75`, borda `/10`→`/15`,
+    igualando ao estilo de `org-node.tsx`); placeholder "Em aberto"
+    `/40`→`/65`; chips de setor `bg/5`→`bg/8`, borda `/10`→`/15`, texto
+    `/60`→`/75`; CTA "Ver detalhes" borda `/10`→`/15`, texto `/50`→`/70`
+
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/migrations/20260611_merge_comercial_administrativa.sql` | Mescla RH/QSMS na Diretoria Comercial /Administrativa; remove Diretoria RH/QSMS e diretor placeholder |
+| `overview/_components/org-node.tsx` | `DIRECTORATE_ICONS` atualizado; contraste de ícones, rótulos, CTA |
+| `overview/_components/org-chart.tsx` | Contraste de chips, `SubDeptCard`, CTA |
+| `app/globals.css` | Escala tipográfica `--text-xs`…`--text-4xl` ampliada (~1px/degrau) |
+| 13 arquivos (admin, my-goals, my-targets, overview, team, login) | `text-[Npx]` +1px em textos arbitrários |
+
+- TypeScript: zero erros
+- ESLint: zero erros, zero warnings novos (2 warnings pré-existentes e não
+  relacionados: `react-hooks/incompatible-library` em `form.watch` e
+  `no-unused-vars` em `audit-log-view.tsx`)
