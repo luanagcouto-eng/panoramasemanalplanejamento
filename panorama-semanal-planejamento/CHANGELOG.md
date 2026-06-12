@@ -52,10 +52,13 @@ em ordem cronológica, com data no formato `AAAA-MM-DD`.
 - **Fix do dev server**: processo `next start` (produção) órfão estava ocupando a porta 3000, causando erro 500 (`ENOENT .next/server/pages/_document.js`) ao acessar `/api/auth/providers`. Processo finalizado e `npm run dev` reiniciado limpo na porta 3000.
 - Validado: `/api/auth/providers` retorna o provider `microsoft-entra-id` (OIDC) corretamente; `/login` e `/` respondem 200.
 
-### Consentimento de administrador (Azure AD) — desbloqueado
-- Erro anterior **"Necessidade de aprovação do administrador"** (AADSTS — admin consent required) ocorria porque o tenant da Estaleiro Mauá tem consentimento de usuário desabilitado, exigindo que um admin aprovasse os escopos padrão do NextAuth (`openid profile email User.Read`) para o app "EstaleiroMaua - PlanodeMetas" (client id `2a3f8838-1ad5-412a-bc43-eecd3458c9d0`).
-- **Atualização**: consentimento de administrador concedido para o app em geral, porém o erro **persistiu** mesmo assim — causa raiz isolada no escopo `User.Read` (Microsoft Graph, usado apenas para buscar a foto de perfil), que exige aprovação de administrador separada da dos escopos OIDC básicos (`openid profile email`).
-- **Fix**: `auth.ts` agora sobrescreve `authorization.params.scope` para `"openid profile email"`, removendo `User.Read`/Graph do fluxo de login. A foto de perfil (`image`) passa a vir sempre `null` (fallback já existente no provider), sem impacto funcional no Fase 1. Login passa a não exigir mais consentimento de Graph.
+### Consentimento de administrador (Azure AD) — pendente (ação fora do código)
+- Erro **"Necessidade de aprovação do administrador"** (AADSTS — admin consent required) ocorre porque o tenant da Estaleiro Mauá tem a política "Do not allow user consent" para o app "EstaleiroMaua - PlanodeMetas" (client id `2a3f8838-1ad5-412a-bc43-eecd3458c9d0`).
+- Removido o escopo `User.Read` (Microsoft Graph) de `auth.ts` (ver abaixo) — não resolveu, pois a tela de consentimento do Azure AD é avaliada a partir das **permissões configuradas no App Registration + política do tenant**, não do escopo enviado em tempo de execução pelo NextAuth.
+- **Ação necessária (fora do código)**: um admin com papel Global Administrator / Privileged Role Administrator / Cloud Application Administrator / Application Administrator precisa:
+  1. Clicar em "Have an admin account? Sign in with that account" na própria tela de erro, entrar com a conta admin e marcar **"Consent on behalf of your organization"** antes de aceitar; OU
+  2. No Entra admin center → Identity → App registrations → "EstaleiroMaua - PlanodeMetas" → API permissions → **"Grant admin consent for [tenant]"**.
+- **Fix de código** (mantido, é uma melhoria independente): `auth.ts` agora sobrescreve `authorization.params.scope` para `"openid profile email"`, removendo `User.Read`/Graph do fluxo de login. A foto de perfil (`image`) passa a vir sempre `null` (fallback já existente no provider).
 
 ### Fix do dev server: CSS 404 em `/login` (asset 404 apos build)
 - Rodar `npm run build` enquanto o `npm run dev` estava ativo sobrescreveu `.next`, quebrando o mapa de assets do dev server — `/_next/static/css/app/layout.css` passou a retornar 404, deixando `/login` sem estilos (Tailwind/branding Mauá).
