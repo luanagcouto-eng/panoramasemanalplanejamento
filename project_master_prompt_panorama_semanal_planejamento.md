@@ -247,11 +247,13 @@ CREATE TRIGGER trg_profiles_updated_at
 
 ### FASE 1 — Auth + Scaffolding
 **Entregável verificável:** login Microsoft funcional, sessão persistida, redirect por role
-- [ ] Registro do App no Azure Portal
-- [ ] NextAuth v5 + Entra ID provider
-- [ ] Supabase: criar tabelas `tenants` e `profiles`
-- [ ] Middleware de autenticação no Vercel Edge
-- [ ] Página de login (aguarda design system)
+- [ ] Registro do App no Azure Portal — **bloqueado**: pendente criação do App Registration e fornecimento de `AZURE_AD_CLIENT_ID` / `AZURE_AD_CLIENT_SECRET` / `AZURE_AD_TENANT_ID`
+- [x] NextAuth v5 + Entra ID provider — `auth.ts` + `app/api/auth/[...nextauth]/route.ts` (código pronto, aguarda credenciais para teste end-to-end)
+- [x] Supabase: criar tabelas `tenants` e `profiles` — migration `supabase/migrations/0001_init.sql` com schema completo (tenants, profiles, reports, indicators, audit_logs); **pendente** aplicar em projeto Supabase real (`NEXT_PUBLIC_SUPABASE_URL` / `ANON_KEY` / `SERVICE_ROLE_KEY`)
+- [x] Middleware de autenticação no Vercel Edge — `middleware.ts` protege `(authenticated)` e redireciona `/login` ↔ `/panorama` conforme sessão
+- [x] Página de login (aguarda design system) — `/login` com `LoginCard` (client) chamando `signIn("microsoft-entra-id")`
+
+**Pendência arquitetural:** sincronização entre sessão NextAuth (Entra ID) e `auth.users`/RLS do Supabase ainda não implementada — schema referencia `profiles.id → auth.users(id)`, mas usuários autenticados via Entra ID não existem automaticamente em `auth.users`. Estratégia a decidir antes de fechar a Fase 1 (ex.: `supabase.auth.admin.createUser` via `lib/supabase/admin.ts` no primeiro login, ou trocar FK por `TEXT` com o `sub` do Entra ID).
 
 ### FASE 2 — Integração OData (PWA / SharePoint)
 **Entregável verificável:** Server Component exibindo dados reais do PWA em tela
@@ -659,7 +661,8 @@ Comece a auditoria agora. Retorne o relatório completo no formato especificado.
 | 2025-06-11 | FASE 0 | **rev.3** — Design System completo integrado. Stack corrigida (`@base-ui/react` + `cva`). Checklist gate e Code Review Pré-Build adicionados. | Claude |
 | 2025-06-11 | FASE 0 | **rev.4** — Git workflow integrado: regra #8, Conventional Commits, branch strategy (`dev`→`main`), repositório `luanagcouto-eng/panoramasemanalplanejamento` registrado. | Claude |
 | 2026-06-12 | FASE 1 | Scaffolding inicial criado em `panorama-semanal-planejamento/` (Next.js 15 App Router + Tailwind v4 + `@base-ui/react` + `cva` + `lucide-react`). Design tokens Mauá aplicados em `app/globals.css` via `@theme`. `lib/utils.ts` com `cn`, `goalColor`, `goalTextClass`, `calcProgress`, `formatGoalValue`, `OP_SYMBOL`, `progressBarPct`. Página de login (`/login`) com card e botão Microsoft (UI only, sem NextAuth ainda). Layout autenticado com sidebar navy (`/panorama`) e página placeholder do Panorama Semanal com indicadores mockados. Build de produção validado (webpack — Turbopack apresenta panic em paths com acentuação, ex. "Mauá"; `outputFileTracingRoot` configurado em `next.config.ts`). | Claude |
+| 2026-06-12 | FASE 1 | NextAuth v5 + Microsoft Entra ID configurado (`auth.ts`, `app/api/auth/[...nextauth]/route.ts`, `types/next-auth.d.ts`). `middleware.ts` protegendo rotas autenticadas com redirect `/login` ↔ `/panorama`. `LoginCard` conectado a `signIn("microsoft-entra-id")`; `LogoutButton` na sidebar exibindo nome/e-mail da sessão. Clients Supabase criados (`lib/supabase/server.ts`, `client.ts`, `admin.ts`). Migration `supabase/migrations/0001_init.sql` com schema completo (tenants, profiles, reports, indicators, audit_logs, triggers, índices). `zod` instalado + `lib/schemas/profile.ts`. `.env.example` com todas as variáveis da Fase 1/2. Build e lint validados. | Claude |
 
 ---
 
-> **Próxima ação:** Scaffolding base ✅ criado. Pendências da FASE 1: registro do App no Azure Portal, NextAuth v5 + Entra ID provider, tabelas Supabase (`tenants`, `profiles`), middleware de autenticação no Vercel Edge — depende de credenciais (Azure AD client id/secret, Supabase URL/keys) a serem fornecidas pelo usuário.
+> **Próxima ação:** Código da FASE 1 pronto, mas **bloqueado por credenciais externas**: (1) registrar App no Azure Portal e fornecer `AZURE_AD_CLIENT_ID`/`SECRET`/`TENANT_ID` + `NEXTAUTH_SECRET`; (2) criar projeto Supabase, aplicar `supabase/migrations/0001_init.sql` e fornecer `NEXT_PUBLIC_SUPABASE_URL`/`ANON_KEY`/`SERVICE_ROLE_KEY`; (3) decidir estratégia de sync NextAuth → `auth.users` do Supabase (ver pendência arquitetural na Fase 1). Após credenciais, validar login end-to-end e fechar gate de Segurança da Fase 1.
