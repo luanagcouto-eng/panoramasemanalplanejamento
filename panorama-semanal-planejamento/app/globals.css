@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+/* ─── Mauá Brand Tokens — Design System (Panorama Semanal) ────────── */
+@theme {
+  /* Primitivos de marca */
+  --color-maua-navy:     #364B59;
+  --color-maua-orange:   #F18213;
+  --color-maua-white:    #FFFFFF;
+  --color-maua-gray-50:  #E7EAEE;
+  --color-maua-gray-100: #F1F3F5;
+  --color-maua-gray-200: #E2E8F0;
+  --color-maua-gray-400: #94A3B8;
+  --color-maua-gray-500: #6B7280;
+  --color-maua-gray-900: #111827;
+
+  /* Tokens semânticos */
+  --color-primary:    var(--color-maua-navy);
+  --color-accent:     var(--color-maua-orange);
+  --color-background: var(--color-maua-white);
+  --color-surface:    var(--color-maua-gray-50);
+  --color-border:     var(--color-maua-gray-200);
+  --color-text:       var(--color-maua-gray-900);
+  --color-muted-foreground: var(--color-maua-gray-500);
+
+  --ring: var(--color-maua-orange);
+
+  /* Gamificação de progresso */
+  --color-goal-low:  #DFA1AA; /*  0–32%  vermelho */
+  --color-goal-mid:  #F9E79F; /* 33–65%  amarelo  */
+  --color-goal-high: #9AD595; /* 66–100% verde    */
+
+  /* Tipografia */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Raios */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+/* ─── Base ──────────────────────────────────────────────────────── */
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+/* ─── Scrollbar sutil ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-maua-gray-100); }
+::-webkit-scrollbar-thumb { background: var(--color-maua-gray-200); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-maua-gray-400); }
+
+/* ─── Impressão A4 (Panorama Semanal) ──────────────────────────────── */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 1.8cm 1.2cm 1.2cm 1.2cm;
+  }
+
+  aside,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    margin-left: 0 !important;
+  }
+
+  body {
+    background: white !important;
+    color: #111827 !important;
+    font-size: 11px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-rule {
+    border: none;
+    border-top: 1.5px solid #364B59;
+    margin: 0;
+  }
+
+  .print-system-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: #364B59;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+}
