@@ -95,3 +95,17 @@ em ordem cronológica, com data no formato `AAAA-MM-DD`.
 - **Fix**: erro `400 redirect_uri_mismatch` no primeiro teste — corrigido adicionando `http://localhost:3000/api/auth/callback/google` em "URIs de redirecionamento autorizados" no Google Cloud Console.
 - Allowlist: adicionado `luana.couto@estaleiromaua.ind.br` como `admin` em `allowed_emails` (e-mail corporativo usado no login real, além de `luanagcouto@gmail.com`).
 - **Login testado com sucesso**: `signIn("google")` → allowlist aprova → `syncUserToSupabase` cria registro em `profiles` (`email: luana.couto@estaleiromaua.ind.br`, `full_name` do Google, `role: admin`) → sessão ativa em `/panorama`. Fluxo completo de autenticação (decisões #8 e #9) validado end-to-end.
+
+## FASE 2 — Integração OData (PWA / SharePoint)
+
+### Cliente OData app-only (commit pendente)
+- **PWA**: `https://fisiocti.sharepoint.com/sites/pwa` — configurado em `SHAREPOINT_PWA_BASE_URL` (`.env.local`/`.env.example`).
+- **`lib/odata/token.ts`** (novo): obtém token app-only via client credentials (`AZURE_AD_CLIENT_ID`/`SECRET`/`TENANT_ID`, scope `https://fisiocti.sharepoint.com/.default`, endpoint `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token`), com cache em memória até expirar (margem de 60s).
+- **`lib/odata/client.ts`** (novo): `getEntitySet<T>(entitySet, options)` (busca um entity set do feed `_api/ProjectData` com `$select`/`$filter`/`$top`/`$orderby`/`$expand`) e `getMetadata()` (XML do `$metadata`, para introspecção). `fetch` com `next: { revalidate: 900 }` (ISR 15min, configurável por chamada) e retry com exponential backoff (3 tentativas, 500ms/1s/2s).
+- **`app/api/odata/metadata/route.ts`** (novo): `GET /api/odata/metadata`, requer sessão autenticada (`auth()`), retorna o XML do `$metadata` ou erro 502 com a mensagem da falha.
+- Validado: `tsc --noEmit`, `npm run lint` e `npm run build` sem erros (ainda sem chamada real ao PWA — credencial app-only ainda sem as permissões necessárias).
+- **Pendente — ação de admin no Azure Portal / SharePoint** (App Registration "EstaleiroMaua - PlanodeMetas", `2a3f8838-1ad5-412a-bc43-eecd3458c9d0`):
+  1. API permissions → Add a permission → SharePoint → Application permissions → `Sites.Selected` (ou `Sites.Read.All`/`Sites.FullControl.All` se necessário para o feed `ProjectData`).
+  2. "Grant admin consent for [tenant]" (Global Administrator / Application Administrator).
+  3. Se `Sites.Selected`: conceder acesso ao site PWA via Microsoft Graph (`GET /sites/fisiocti.sharepoint.com:/sites/pwa` → `{site-id}`; `POST /sites/{site-id}/permissions` com a identidade do app).
+  4. Testar `GET /api/odata/metadata` (autenticado) — deve retornar o XML do `ProjectData` `$metadata`.

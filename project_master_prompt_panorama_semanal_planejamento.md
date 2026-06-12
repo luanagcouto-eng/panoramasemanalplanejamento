@@ -261,11 +261,19 @@ CREATE TRIGGER trg_profiles_updated_at
 
 ### FASE 2 — Integração OData (PWA / SharePoint)
 **Entregável verificável:** Server Component exibindo dados reais do PWA em tela
-- [ ] App Registration Entra ID com permissões de **aplicação** (Application permissions, ex. `Sites.Read.All` ou equivalente do Project Online) + admin consent — credencial **app-only** (client credentials flow), independente do login do usuário (decisão #9)
-- [ ] `lib/odata.ts` — cliente tipado para o endpoint OData REST, autentica via client credentials (`AZURE_AD_CLIENT_ID`/`SECRET`/`TENANT_ID`)
-- [ ] `fetch` com `next: { revalidate: 900 }` (ISR 15min) por entidade
-- [ ] Endpoint `GET /api/odata/$metadata` → introspect das entidades disponíveis
-- [ ] Tratamento de erro + retry com exponential backoff
+- [ ] App Registration Entra ID com permissões de **aplicação** (Application permissions) + admin consent — credencial **app-only** (client credentials flow), independente do login do usuário (decisão #9). PWA: `https://fisiocti.sharepoint.com/sites/pwa`. **Pendente — ação no Azure/SharePoint (admin)**, ver checklist abaixo
+- [x] `lib/odata/token.ts` — obtenção de token app-only via client credentials (`AZURE_AD_CLIENT_ID`/`SECRET`/`TENANT_ID`, scope `https://fisiocti.sharepoint.com/.default`), com cache em memória
+- [x] `lib/odata/client.ts` — `getEntitySet<T>()` e `getMetadata()` para o feed `_api/ProjectData`, com `fetch`/`next: { revalidate: 900 }` (ISR 15min, override por chamada) e retry com exponential backoff (3 tentativas)
+- [x] Endpoint `GET /api/odata/metadata` (autenticado) → introspect das entidades disponíveis via `$metadata`
+- [x] Tratamento de erro + retry com exponential backoff (em `lib/odata/client.ts`)
+
+**Checklist de permissões (Azure Portal + SharePoint admin) — ação de um admin do tenant:**
+1. Entra admin center → App registrations → **"EstaleiroMaua - PlanodeMetas"** (`2a3f8838-1ad5-412a-bc43-eecd3458c9d0`) → API permissions → Add a permission → **SharePoint** → Application permissions → `Sites.Selected` (recomendado; restringe o acesso ao site PWA específico) — ou `Sites.Read.All`/`Sites.FullControl.All` se `Sites.Selected` não cobrir o feed `ProjectData`.
+2. Clicar **"Grant admin consent for [tenant]"** (precisa de Global Administrator / Privileged Role Administrator / Cloud Application Administrator / Application Administrator). Diferente do bloqueio da Fase 1: aqui o consentimento é concedido diretamente pelo admin no portal, não depende da política "Do not allow user consent" do tenant.
+3. Se usar `Sites.Selected`: conceder acesso do app ao site PWA via Microsoft Graph (Graph Explorer ou PowerShell, com permissão delegada de admin):
+   - `GET https://graph.microsoft.com/v1.0/sites/fisiocti.sharepoint.com:/sites/pwa` → obter `{site-id}`
+   - `POST https://graph.microsoft.com/v1.0/sites/{site-id}/permissions` com body `{"roles": ["read"], "grantedToIdentities": [{"application": {"id": "2a3f8838-1ad5-412a-bc43-eecd3458c9d0", "displayName": "EstaleiroMaua - PlanodeMetas"}}]}`
+4. Testar `GET /api/odata/metadata` (requer sessão autenticada) — deve retornar o XML do `$metadata` do feed `ProjectData`. Se retornar 401/403, revisar permissões (passos 1-3) ou se a identidade app-only também precisa de acesso explícito no PWA (Server Settings → Manage Users do Project Online).
 
 ### FASE 3 — Engine de Indicadores
 **Entregável verificável:** indicadores calculados e exibidos em tela
@@ -678,6 +686,7 @@ Comece a auditoria agora. Retorne o relatório completo no formato especificado.
 | 2026-06-12 | FASE 1 | Tentativa de desbloqueio do login Microsoft: removido escopo `User.Read`/Graph de `auth.ts` (causa raiz aparente do "Need admin approval"). Erro persistiu mesmo após consentimento geral concedido — causa raiz é a política "Do not allow user consent" do tenant Estaleiro Mauá, fora do controle da aplicação. | Claude |
 | 2026-06-12 | FASE 1 | **Decisão #9** — login trocado de Microsoft Entra ID para **Google** + allowlist. Migration `supabase/migrations/0003_allowed_emails.sql` (tabela `allowed_emails`: email/role/tenant_id, RLS restrita a admins) aplicada via MCP; seed `luanagcouto@gmail.com` como `admin`. Novo `lib/supabase/check-allowlist.ts`. `lib/supabase/sync-user.ts` generalizado (`syncEntraUserToSupabase` → `syncUserToSupabase`, recebe `role` da allowlist). `auth.ts`: provider `Google`, callback `signIn` nega login se e-mail fora da allowlist, callback `jwt` usa `role` da allowlist no sync; removido `accessToken`/`session.accessToken` (não aplicável a Google). `types/next-auth.d.ts` atualizado. `LoginCard` com botão "Entrar com Google". `.env.example`/`.env.local`: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (login) + `AZURE_AD_*` realocado para credencial app-only da Fase 2 (OData/PWA). Pendente: criar OAuth Client no Google Cloud Console e configurar `SUPABASE_JWT_SECRET`. | Claude |
 | 2026-06-12 | FASE 1 | Login Google validado end-to-end: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` e `SUPABASE_JWT_SECRET` configurados em `.env.local`. Fix `400 redirect_uri_mismatch` (URI `http://localhost:3000/api/auth/callback/google` cadastrada no Google Cloud Console). Allowlist ampliada com `luana.couto@estaleiromaua.ind.br` (`admin`). Login real testado com sucesso — `profiles` populado (`role: admin`), sessão ativa em `/panorama`. Gate de Segurança da Fase 1 fechado. | Claude |
+| 2026-06-12 | FASE 2 | Início da integração OData/PWA (`https://fisiocti.sharepoint.com/sites/pwa`). `lib/odata/token.ts` (token app-only via client credentials, scope `https://fisiocti.sharepoint.com/.default`, cache em memória) e `lib/odata/client.ts` (`getEntitySet<T>()`/`getMetadata()` para `_api/ProjectData`, ISR `revalidate: 900`, retry com exponential backoff). Endpoint `GET /api/odata/metadata` (autenticado) criado. `SHAREPOINT_PWA_BASE_URL` configurado em `.env.local`/`.env.example`. Build, lint e `tsc --noEmit` validados. **Pendente — ação de admin no Azure/SharePoint**: conceder `Sites.Selected` (Application permission) ao App Registration "EstaleiroMaua - PlanodeMetas" + admin consent + grant de acesso ao site PWA via Microsoft Graph (checklist detalhado na Fase 2). | Claude |
 
 ---
 
