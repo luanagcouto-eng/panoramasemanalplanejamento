@@ -4,14 +4,26 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { CalendarRange, Loader2 } from "lucide-react";
 
-/** Logo Microsoft (4 quadrados) — usado no botão de SSO Entra ID */
-function MicrosoftLogo() {
+/** Logo Google — usado no botão de SSO */
+function GoogleLogo() {
   return (
-    <svg viewBox="0 0 21 21" className="w-4 h-4" aria-hidden>
-      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+    <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden>
+      <path
+        fill="#4285F4"
+        d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.43 3.58v2.98h3.93c2.3-2.12 3.52-5.24 3.52-8.8z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.08 7.93-2.93l-3.93-2.98c-1.07.71-2.43 1.13-4 1.13-3.07 0-5.66-2.04-6.59-4.86H1.36v3.05C3.34 21.3 7.36 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.41 14.36C5.15 13.6 5 12.81 5 12s.15-1.6.41-2.36V6.59H1.36C.5 8.21 0 10.05 0 12s.5 3.79 1.36 5.41l4.05-3.05z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.49-3.49C17.94 1.19 15.24 0 12 0 7.36 0 3.34 2.7 1.36 6.59l4.05 3.05C6.34 6.79 8.93 4.75 12 4.75z"
+      />
     </svg>
   );
 }
@@ -21,7 +33,7 @@ export default function LoginCard() {
 
   async function handleSignIn() {
     setLoading(true);
-    await signIn("microsoft-entra-id", { redirectTo: "/panorama" });
+    await signIn("google", { redirectTo: "/panorama" });
   }
 
   return (
@@ -46,15 +58,15 @@ export default function LoginCard() {
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
           ) : (
-            <MicrosoftLogo />
+            <GoogleLogo />
           )}
-          Entrar com Microsoft
+          Entrar com Google
         </button>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Acesso restrito aos colaboradores do Estaleiro Mauá.
+          Acesso restrito a usuários autorizados.
           <br />
-          Autenticação via Microsoft Entra ID.
+          Autenticação via Google.
         </p>
       </div>
     </div>

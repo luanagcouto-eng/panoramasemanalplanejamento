@@ -73,7 +73,8 @@ git commit -m "docs: atualiza PROJECT_MASTER_PROMPT fase 1 concluída"
 | Estilo | Tailwind CSS v4 + `@base-ui/react` + `cva` | Primitives headless, variantes tipadas, tokens via `@theme` |
 | Banco | Supabase (PostgreSQL + RLS) | Row Level Security por role sem lógica extra no front |
 | Hospedagem | Vercel | Edge Middleware para auth, deploy contínuo |
-| Auth | NextAuth.js v5 + Microsoft Entra ID | OAuth2 Delegated — token acessa OData em nome do usuário |
+| Auth | NextAuth.js v5 + Google + allowlist `allowed_emails` (decisão #9) | Login simples, sem dependência do consentimento de admin do tenant Entra ID |
+| OData Auth | Microsoft Entra ID app-only (client credentials), credencial separada do login (Fase 2) | Acesso ao PWA independe de qual provedor o usuário usa para logar |
 | Observabilidade | Vercel Analytics + Sentry + Supabase Logs | Cobertura full-stack |
 | OData Client | fetch nativo via Server Component / Server Action | RSC já roda no servidor — sem CORS, token do Entra ID injetado diretamente |
 | Cache OData | Next.js `fetch` com `revalidate` (ISR) | Cache em memória na Edge — sem banco, sem latência extra |
@@ -246,21 +247,22 @@ CREATE TRIGGER trg_profiles_updated_at
 **Entregável verificável:** este documento aprovado + schema revisado
 
 ### FASE 1 — Auth + Scaffolding
-**Entregável verificável:** login Microsoft funcional, sessão persistida, redirect por role
-- [x] Registro do App no Azure Portal — App Registration criado, credenciais (`AZURE_AD_CLIENT_ID` / `AZURE_AD_CLIENT_SECRET` / `AZURE_AD_TENANT_ID`) fornecidas e configuradas em `.env.local`
-- [x] NextAuth v5 + Entra ID provider — `auth.ts` + `app/api/auth/[...nextauth]/route.ts`; `/api/auth/providers` validado em `http://localhost:3000` com credenciais reais (retorna provider `microsoft-entra-id` corretamente)
+**Entregável verificável:** login funcional, sessão persistida, redirect por role
+- [x] Registro do App no Azure Portal — App Registration criado, credenciais (`AZURE_AD_CLIENT_ID` / `AZURE_AD_CLIENT_SECRET` / `AZURE_AD_TENANT_ID`) fornecidas e configuradas em `.env.local`. Reaproveitado como credencial app-only da Fase 2 (decisão #9)
+- [x] ~~NextAuth v5 + Entra ID provider~~ — substituído por **Google** (decisão #9): `auth.ts` + `app/api/auth/[...nextauth]/route.ts`
 - [x] Supabase: criar tabelas `tenants` e `profiles` — migration `supabase/migrations/0001_init.sql` aplicada no projeto real `PanoramaSemanalPlanejamento` (`evcewpfizfbwcpnwahmt`, us-west-2); schema das 5 tabelas confirmado via MCP `list_tables`. Aviso de segurança `function_search_path_mutable` corrigido (`supabase/migrations/0002_fix_search_path.sql`), `get_advisors` sem lints pendentes
 - [x] Middleware de autenticação no Vercel Edge — `middleware.ts` protege `(authenticated)` e redireciona `/login` ↔ `/panorama` conforme sessão
-- [x] Página de login (aguarda design system) — `/login` com `LoginCard` (client) chamando `signIn("microsoft-entra-id")`
+- [x] Página de login (aguarda design system) — `/login` com `LoginCard` (client) chamando `signIn("google")`
 
-- [x] Sync NextAuth (Entra ID) → `auth.users`/`profiles` do Supabase — resolvido pela decisão arquitetural #8: `lib/supabase/sync-user.ts` (`supabase.auth.admin.createUser` + upsert em `profiles` no primeiro login) + `lib/supabase/jwt.ts` (assina token `authenticated` com `SUPABASE_JWT_SECRET`, `sub = profiles.id`) usado por `lib/supabase/server.ts` para que `auth.uid()` funcione nas policies de RLS. **Pendente**: configurar `SUPABASE_JWT_SECRET` em `.env.local` e testar end-to-end.
+- [x] Sync NextAuth → `auth.users`/`profiles` do Supabase — resolvido pela decisão arquitetural #8: `lib/supabase/sync-user.ts` (`supabase.auth.admin.createUser` + upsert em `profiles` no primeiro login) + `lib/supabase/jwt.ts` (assina token `authenticated` com `SUPABASE_JWT_SECRET`, `sub = profiles.id`) usado por `lib/supabase/server.ts` para que `auth.uid()` funcione nas policies de RLS. **Pendente**: configurar `SUPABASE_JWT_SECRET` em `.env.local` e testar end-to-end.
+- [x] **Decisão #9** — login Microsoft trocado por Google + allowlist `allowed_emails` (migration `0003_allowed_emails.sql`, `lib/supabase/check-allowlist.ts`). `auth.ts` callback `signIn` nega login se e-mail não estiver na allowlist; `jwt` usa a `role` da allowlist no sync. Seed inicial: `luanagcouto@gmail.com` como `admin`. **Pendente**: criar OAuth Client ID no Google Cloud Console (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`) e configurar `SUPABASE_JWT_SECRET`.
 
-**Pendência:** login end-to-end ainda bloqueado por consentimento de administrador no Azure AD (ver changelog 2026-06-12). Após desbloqueio, validar fluxo completo (login → sync Supabase → RLS) e fechar gate de Segurança da Fase 1.
+**Pendência:** testar login end-to-end com Google (após configurar credenciais OAuth) e fechar gate de Segurança da Fase 1.
 
 ### FASE 2 — Integração OData (PWA / SharePoint)
 **Entregável verificável:** Server Component exibindo dados reais do PWA em tela
-- [ ] `lib/odata.ts` — cliente tipado para o endpoint OData REST
-- [ ] Token Entra ID propagado do NextAuth session → fetch server-side
+- [ ] App Registration Entra ID com permissões de **aplicação** (Application permissions, ex. `Sites.Read.All` ou equivalente do Project Online) + admin consent — credencial **app-only** (client credentials flow), independente do login do usuário (decisão #9)
+- [ ] `lib/odata.ts` — cliente tipado para o endpoint OData REST, autentica via client credentials (`AZURE_AD_CLIENT_ID`/`SECRET`/`TENANT_ID`)
 - [ ] `fetch` com `next: { revalidate: 900 }` (ISR 15min) por entidade
 - [ ] Endpoint `GET /api/odata/$metadata` → introspect das entidades disponíveis
 - [ ] Tratamento de erro + retry com exponential backoff
@@ -289,17 +291,22 @@ CREATE TRIGGER trg_profiles_updated_at
 ## 🔧 VARIÁVEIS DE AMBIENTE NECESSÁRIAS
 
 ```env
-# NextAuth / Microsoft Entra
+# NextAuth / Google (decisao #9)
 NEXTAUTH_SECRET=
 NEXTAUTH_URL=
-AZURE_AD_CLIENT_ID=
-AZURE_AD_CLIENT_SECRET=
-AZURE_AD_TENANT_ID=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_JWT_SECRET=
+
+# Microsoft Entra ID — app-only (client credentials) para OData/PWA (Fase 2)
+AZURE_AD_CLIENT_ID=
+AZURE_AD_CLIENT_SECRET=
+AZURE_AD_TENANT_ID=
 
 # Sentry (Observabilidade)
 SENTRY_DSN=
@@ -322,6 +329,7 @@ SHAREPOINT_PWA_BASE_URL=    # https://<tenant>.sharepoint.com/sites/<pwa>
 | 5 | JSONB para `snapshot` e `column_map` | Tabelas relacionais | Flexibilidade — estrutura OData varia por tenant |
 | 7 | `@base-ui/react` + `cva` em vez de shadcn/ui | shadcn/ui | Design System existente já usa @base-ui — consistência com metas-maua |
 | 8 | Sync NextAuth → `auth.users`/`profiles` via `supabase.auth.admin.createUser` no primeiro login + JWT `authenticated` assinado com `SUPABASE_JWT_SECRET` (`sub = profiles.id`) | Trocar FK `profiles.id` por `TEXT` com `sub` do Entra ID + claims customizadas | Preserva `profiles.id → auth.users(id)`, mantém RLS nativo via `auth.uid()`, evita reescrever policies e infra própria de tokens |
+| 9 | Login via **Google** (NextAuth) + allowlist `allowed_emails` (tabela Supabase, `signIn` callback nega login se e-mail não cadastrado); acesso ao PWA na Fase 2 via credencial Entra ID **app-only** (client credentials), independente do login | Manter Microsoft Entra ID como login (decisão #1) | Login Microsoft ficou bloqueado por política de consentimento de administrador do tenant (AADSTS — "Need admin approval"), mesmo após consentimento geral concedido e remoção do escopo `User.Read`/Graph — causa raiz na política "Do not allow user consent" do tenant, fora do controle da aplicação. Google evita essa dependência; allowlist substitui a restrição automática por domínio corporativo que o Entra ID oferecia. Acesso ao PWA (Fase 2) não depende de qual provedor o usuário usa para logar — sempre exigiria consentimento de admin para permissões de aplicação (Application permissions), então uma credencial app-only dedicada é necessária de qualquer forma |
 
 ---
 
@@ -667,6 +675,8 @@ Comece a auditoria agora. Retorne o relatório completo no formato especificado.
 | 2026-06-12 | FASE 1 | NextAuth v5 + Microsoft Entra ID configurado (`auth.ts`, `app/api/auth/[...nextauth]/route.ts`, `types/next-auth.d.ts`). `middleware.ts` protegendo rotas autenticadas com redirect `/login` ↔ `/panorama`. `LoginCard` conectado a `signIn("microsoft-entra-id")`; `LogoutButton` na sidebar exibindo nome/e-mail da sessão. Clients Supabase criados (`lib/supabase/server.ts`, `client.ts`, `admin.ts`). Migration `supabase/migrations/0001_init.sql` com schema completo (tenants, profiles, reports, indicators, audit_logs, triggers, índices). `zod` instalado + `lib/schemas/profile.ts`. `.env.example` com todas as variáveis da Fase 1/2. Build e lint validados. | Claude |
 | 2026-06-12 | FASE 1 | Credenciais reais do Azure AD (App Registration) e Supabase (`PanoramaSemanalPlanejamento`, `evcewpfizfbwcpnwahmt`) configuradas em `.env.local`. Migration `0001_init.sql` confirmada já aplicada no projeto via MCP (`list_tables`); aviso de segurança `function_search_path_mutable` corrigido com `supabase/migrations/0002_fix_search_path.sql` (`apply_migration` + `get_advisors` limpo). Dev server validado em `http://localhost:3000`: `/api/auth/providers` retorna `microsoft-entra-id` (OIDC) corretamente, `/login` e `/` (redirect) respondem 200. | Claude |
 | 2026-06-12 | FASE 1 | **Decisão #8** — sync NextAuth → Supabase implementado: `lib/supabase/sync-user.ts` (cria/atualiza `auth.users` + `profiles` no primeiro login via `service_role`), `lib/supabase/jwt.ts` (assina JWT `authenticated` com `SUPABASE_JWT_SECRET`, `sub = profiles.id`, exp. 1h, via `jose`). `auth.ts`: callback `jwt` chama o sync e renova `supabaseAccessToken`; callback `session` expõe `session.user.id` (= `profiles.id`) e `session.supabaseAccessToken`. `lib/supabase/server.ts` refeito para usar `@supabase/supabase-js` com header `Authorization: Bearer <supabaseAccessToken>`, habilitando `auth.uid()` nas policies de RLS. `types/next-auth.d.ts` atualizado. Pendente: usuário fornecer `SUPABASE_JWT_SECRET` (Project Settings → Data API → JWT Settings) e desbloqueio do consentimento de admin do Azure AD para teste end-to-end. Build, lint e `tsc --noEmit` validados. | Claude |
+| 2026-06-12 | FASE 1 | Tentativa de desbloqueio do login Microsoft: removido escopo `User.Read`/Graph de `auth.ts` (causa raiz aparente do "Need admin approval"). Erro persistiu mesmo após consentimento geral concedido — causa raiz é a política "Do not allow user consent" do tenant Estaleiro Mauá, fora do controle da aplicação. | Claude |
+| 2026-06-12 | FASE 1 | **Decisão #9** — login trocado de Microsoft Entra ID para **Google** + allowlist. Migration `supabase/migrations/0003_allowed_emails.sql` (tabela `allowed_emails`: email/role/tenant_id, RLS restrita a admins) aplicada via MCP; seed `luanagcouto@gmail.com` como `admin`. Novo `lib/supabase/check-allowlist.ts`. `lib/supabase/sync-user.ts` generalizado (`syncEntraUserToSupabase` → `syncUserToSupabase`, recebe `role` da allowlist). `auth.ts`: provider `Google`, callback `signIn` nega login se e-mail fora da allowlist, callback `jwt` usa `role` da allowlist no sync; removido `accessToken`/`session.accessToken` (não aplicável a Google). `types/next-auth.d.ts` atualizado. `LoginCard` com botão "Entrar com Google". `.env.example`/`.env.local`: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (login) + `AZURE_AD_*` realocado para credencial app-only da Fase 2 (OData/PWA). Pendente: criar OAuth Client no Google Cloud Console e configurar `SUPABASE_JWT_SECRET`. | Claude |
 
 ---
 

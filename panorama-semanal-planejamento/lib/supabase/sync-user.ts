@@ -1,24 +1,27 @@
 import { createAdminClient } from "./admin";
 
-interface SyncEntraUserParams {
+interface SyncUserParams {
   email: string;
   name?: string | null;
   image?: string | null;
+  role: "admin" | "planner" | "viewer";
 }
 
 /**
- * Garante que um usuario autenticado via Microsoft Entra ID tenha um
+ * Garante que um usuario autenticado (Google + allowlist) tenha um
  * registro correspondente em `auth.users` + `profiles` no Supabase,
  * necessario para que `profiles.id` seja usado como `auth.uid()` nas
  * policies de RLS.
  *
- * Chamado a partir do callback `jwt` do NextAuth no primeiro login.
+ * Chamado a partir do callback `jwt` do NextAuth no primeiro login,
+ * apos o callback `signIn` confirmar que o e-mail esta na allowlist.
  */
-export async function syncEntraUserToSupabase({
+export async function syncUserToSupabase({
   email,
   name,
   image,
-}: SyncEntraUserParams): Promise<string> {
+  role,
+}: SyncUserParams): Promise<string> {
   const supabase = createAdminClient();
 
   const { data: existingProfile } = await supabase
@@ -51,7 +54,7 @@ export async function syncEntraUserToSupabase({
     email,
     full_name: name ?? null,
     avatar_url: image ?? null,
-    role: "viewer",
+    role,
   });
 
   return data.user.id;
