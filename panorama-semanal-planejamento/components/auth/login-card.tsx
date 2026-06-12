@@ -1,4 +1,8 @@
-import { CalendarRange } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { CalendarRange, Loader2 } from "lucide-react";
 
 /** Logo Microsoft (4 quadrados) — usado no botão de SSO Entra ID */
 function MicrosoftLogo() {
@@ -13,6 +17,13 @@ function MicrosoftLogo() {
 }
 
 export default function LoginCard() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleSignIn() {
+    setLoading(true);
+    await signIn("microsoft-entra-id", { redirectTo: "/panorama" });
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface px-4">
       <div className="w-full max-w-sm rounded-xl border border-border bg-white p-8 shadow-sm">
@@ -28,12 +39,15 @@ export default function LoginCard() {
 
         <button
           type="button"
-          disabled
-          aria-disabled="true"
-          title="Disponível na Fase 1 — Auth (Microsoft Entra ID)"
+          onClick={handleSignIn}
+          disabled={loading}
           className="w-full flex items-center justify-center gap-3 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-semibold text-[#364B59] transition-colors hover:bg-maua-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <MicrosoftLogo />
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+          ) : (
+            <MicrosoftLogo />
+          )}
           Entrar com Microsoft
         </button>
 

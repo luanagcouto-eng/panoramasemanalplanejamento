@@ -1,5 +1,6 @@
 import { CalendarRange, Gauge, FileText, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import LogoutButton from "@/components/auth/logout-button";
 
 const NAV_ITEMS = [
   { label: "Panorama Semanal", href: "/panorama", icon: CalendarRange, active: true },
@@ -8,7 +9,19 @@ const NAV_ITEMS = [
   { label: "Configurações", href: "/configuracoes", icon: Settings, active: false },
 ] as const;
 
-export default function Sidebar() {
+type SidebarProps = {
+  userName?: string | null;
+  userEmail?: string | null;
+};
+
+export default function Sidebar({ userName, userEmail }: SidebarProps) {
+  const initials = (userName ?? userEmail ?? "EM")
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col bg-[#364B59] text-white">
       <div className="flex items-center gap-2 px-6 py-5">
@@ -45,12 +58,13 @@ export default function Sidebar() {
       <div className="px-3 py-4 border-t border-[#2D3F4A]">
         <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D5DC]">
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2D3F4A] text-xs font-bold text-white">
-            EM
+            {initials}
           </div>
-          <div className="leading-tight">
-            <p className="font-medium text-white">Estaleiro Mauá</p>
-            <p className="text-[11px] text-[#94A3B8]">Fase 1 — Scaffolding</p>
+          <div className="leading-tight flex-1 min-w-0">
+            <p className="font-medium text-white truncate">{userName ?? "Usuário"}</p>
+            <p className="text-[11px] text-[#94A3B8] truncate">{userEmail ?? ""}</p>
           </div>
+          <LogoutButton />
         </div>
       </div>
     </aside>
