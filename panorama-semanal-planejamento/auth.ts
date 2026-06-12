@@ -1,5 +1,7 @@
 import NextAuth from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import { createSupabaseAccessToken } from "@/lib/supabase/jwt";
+import { syncEntraUserToSupabase } from "@/lib/supabase/sync-user";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -16,15 +18,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, user }) {
       // Propaga o access token do Entra ID para uso nas chamadas OData (Fase 2)
       if (account?.access_token) {
         token.accessToken = account.access_token;
       }
+
+      // Primeiro login: garante usuario correspondente em auth.users/profiles
+      if (account && user?.email) {
+        token.supabaseUserId = await syncEntraUserToSupabase({
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        });
+      }
+
+      // Renova o token Supabase (curta duracao) a cada requisicao
+      if (token.supabaseUserId && token.email) {
+        token.supabaseAccessToken = await createSupabaseAccessToken(
+          token.supabaseUserId as string,
+          token.email
+        );
+      }
+
       return token;
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string | undefined;
+      session.supabaseAccessToken = token.supabaseAccessToken as string | undefined;
+      if (token.supabaseUserId) {
+        session.user.id = token.supabaseUserId as string;
+      }
       return session;
     },
   },

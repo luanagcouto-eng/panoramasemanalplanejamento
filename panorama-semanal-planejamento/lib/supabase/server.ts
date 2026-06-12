@@ -1,32 +1,29 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { auth } from "@/auth";
 
 /**
- * Cliente Supabase para uso em Server Components / Server Actions,
- * respeitando RLS com base na sessão Supabase sincronizada a partir
- * do NextAuth (ver decisão #8 — sync NextAuth -> Supabase).
+ * Cliente Supabase para uso em Server Components / Server Actions.
+ *
+ * Autentica as requisicoes com o token assinado a partir da sessao
+ * NextAuth (ver lib/supabase/jwt.ts e lib/supabase/sync-user.ts), de
+ * forma que `auth.uid()` resolva para `profiles.id` e as policies de
+ * RLS sejam aplicadas normalmente. Sem sessao, o client opera como
+ * usuario anonimo (role `anon`).
  */
 export async function createClient() {
-  const cookieStore = await cookies();
+  const session = await auth();
 
-  return createServerClient(
+  return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Chamado de Server Component — cookies de resposta ignorados
-          }
-        },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
+      global: session?.supabaseAccessToken
+        ? { headers: { Authorization: `Bearer ${session.supabaseAccessToken}` } }
+        : undefined,
     }
   );
 }

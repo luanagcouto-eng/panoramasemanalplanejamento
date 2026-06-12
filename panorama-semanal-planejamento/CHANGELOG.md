@@ -52,11 +52,17 @@ em ordem cronológica, com data no formato `AAAA-MM-DD`.
 - **Fix do dev server**: processo `next start` (produção) órfão estava ocupando a porta 3000, causando erro 500 (`ENOENT .next/server/pages/_document.js`) ao acessar `/api/auth/providers`. Processo finalizado e `npm run dev` reiniciado limpo na porta 3000.
 - Validado: `/api/auth/providers` retorna o provider `microsoft-entra-id` (OIDC) corretamente; `/login` e `/` respondem 200.
 
-### Pendência em aberto — consentimento de administrador (Azure AD)
-- Ao testar o login real, ocorreu o erro **"Necessidade de aprovação do administrador"** (AADSTS — admin consent required). O tenant da Estaleiro Mauá tem a política de consentimento de usuário desabilitada, então qualquer app novo — mesmo com os escopos padrão do NextAuth (`openid profile email User.Read`) — precisa que um administrador do Entra ID conceda consentimento em:
-  **Azure Portal → Microsoft Entra ID → App registrations (ou Enterprise applications) → App "EstaleiroMaua - PlanodeMetas" (client id `2a3f8838-1ad5-412a-bc43-eecd3458c9d0`) → API permissions → "Grant admin consent for Estaleiro Mauá"**.
-- Também verificar se o redirect URI `http://localhost:3000/api/auth/callback/microsoft-entra-id` está cadastrado em Authentication, já que o app parece ser compartilhado com outro projeto (Plano de Metas).
-- **Bloqueia**: teste end-to-end do login e fechamento do gate de Segurança da Fase 1.
+### Consentimento de administrador (Azure AD) — desbloqueado
+- Erro anterior **"Necessidade de aprovação do administrador"** (AADSTS — admin consent required) ocorria porque o tenant da Estaleiro Mauá tem consentimento de usuário desabilitado, exigindo que um admin aprovasse os escopos padrão do NextAuth (`openid profile email User.Read`) para o app "EstaleiroMaua - PlanodeMetas" (client id `2a3f8838-1ad5-412a-bc43-eecd3458c9d0`).
+- **Atualização**: consentimento de administrador **concedido**. Teste de login end-to-end ainda não confirmado nesta sessão — próximo passo é repetir o login pelo navegador e validar o callback (`/api/auth/callback/microsoft-entra-id`) sem `error=access_denied`.
 
-### Pendência arquitetural — sync NextAuth ↔ Supabase `auth.users`
-- O schema referencia `profiles.id → auth.users(id)`, mas usuários autenticados via Entra ID não são criados automaticamente em `auth.users`. Estratégia a decidir: `supabase.auth.admin.createUser` no primeiro login (via `lib/supabase/admin.ts`) ou trocar a FK por `TEXT` com o `sub` do Entra ID.
+### Sync NextAuth ↔ Supabase `auth.users` (decisão #8 — resolvido)
+- **Decisão**: manter Entra ID como provedor de autenticação (via NextAuth) e Supabase como backend de dados/RLS, sincronizando automaticamente o usuário Entra ID com `auth.users`/`profiles` no primeiro login. Alternativa de trocar a FK `profiles.id` por `TEXT`/`sub` do Entra ID foi descartada (exigiria infraestrutura própria de tokens e reescrita de todas as policies de RLS).
+- **`lib/supabase/sync-user.ts`** (novo): no primeiro login, busca `profiles` por `email`; se não existir, cria o usuário via `supabase.auth.admin.createUser` (service_role) e insere o `profiles` correspondente (`role: viewer` por padrão). Em logins subsequentes, apenas atualiza `full_name`/`avatar_url`.
+- **`lib/supabase/jwt.ts`** (novo): assina, via `jose` (`SignJWT`, HS256), um access token compatível com o GoTrue do Supabase — `sub = profiles.id`, `role: authenticated`, expiração de 1h — usando `SUPABASE_JWT_SECRET` (mesmo segredo das chaves anon/service_role do projeto, confirmado HS256/legacy).
+- **`auth.ts`**: callback `jwt` chama `syncEntraUserToSupabase` no primeiro login (quando `account` está presente) e renova `supabaseAccessToken` a cada requisição a partir do `supabaseUserId` já armazenado no token. Callback `session` expõe `session.user.id` (= `profiles.id`) e `session.supabaseAccessToken`.
+- **`lib/supabase/server.ts`** (reescrito): trocado `createServerClient` (cookies, `@supabase/ssr`) por `createClient` (`@supabase/supabase-js`) com header `Authorization: Bearer <supabaseAccessToken>`, fazendo `auth.uid()` resolver para `profiles.id` nas policies de RLS já criadas em `0001_init.sql`.
+- **`types/next-auth.d.ts`**: `Session.user.id`, `Session.supabaseAccessToken`, `JWT.supabaseUserId`, `JWT.supabaseAccessToken`.
+- Dependência **`jose`** adicionada (assinatura de JWT HS256, leve, compatível com Edge Runtime).
+- Validado: `tsc --noEmit`, `npm run lint` e `npm run build` sem erros.
+- **Pendente**: definir `SUPABASE_JWT_SECRET` em `.env.local` (Supabase Dashboard → Project Settings → Data API → JWT Settings → JWT Secret) e testar o fluxo completo (login → sync → `profiles` populado → query com RLS).
