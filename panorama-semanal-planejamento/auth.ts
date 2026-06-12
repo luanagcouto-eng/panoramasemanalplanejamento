@@ -9,6 +9,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientId: process.env.AZURE_AD_CLIENT_ID,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
       issuer: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/v2.0`,
+      // O escopo padrao inclui "User.Read" (Microsoft Graph), que exige
+      // consentimento de administrador separado neste tenant. Mantemos
+      // apenas os escopos OIDC basicos (login/identidade), sem acesso ao Graph.
+      authorization: { params: { scope: "openid profile email" } },
     }),
   ],
   pages: {

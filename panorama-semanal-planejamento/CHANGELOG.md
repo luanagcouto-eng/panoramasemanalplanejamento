@@ -54,7 +54,16 @@ em ordem cronológica, com data no formato `AAAA-MM-DD`.
 
 ### Consentimento de administrador (Azure AD) — desbloqueado
 - Erro anterior **"Necessidade de aprovação do administrador"** (AADSTS — admin consent required) ocorria porque o tenant da Estaleiro Mauá tem consentimento de usuário desabilitado, exigindo que um admin aprovasse os escopos padrão do NextAuth (`openid profile email User.Read`) para o app "EstaleiroMaua - PlanodeMetas" (client id `2a3f8838-1ad5-412a-bc43-eecd3458c9d0`).
-- **Atualização**: consentimento de administrador **concedido**. Teste de login end-to-end ainda não confirmado nesta sessão — próximo passo é repetir o login pelo navegador e validar o callback (`/api/auth/callback/microsoft-entra-id`) sem `error=access_denied`.
+- **Atualização**: consentimento de administrador concedido para o app em geral, porém o erro **persistiu** mesmo assim — causa raiz isolada no escopo `User.Read` (Microsoft Graph, usado apenas para buscar a foto de perfil), que exige aprovação de administrador separada da dos escopos OIDC básicos (`openid profile email`).
+- **Fix**: `auth.ts` agora sobrescreve `authorization.params.scope` para `"openid profile email"`, removendo `User.Read`/Graph do fluxo de login. A foto de perfil (`image`) passa a vir sempre `null` (fallback já existente no provider), sem impacto funcional no Fase 1. Login passa a não exigir mais consentimento de Graph.
+
+### Fix do dev server: CSS 404 em `/login` (asset 404 apos build)
+- Rodar `npm run build` enquanto o `npm run dev` estava ativo sobrescreveu `.next`, quebrando o mapa de assets do dev server — `/_next/static/css/app/layout.css` passou a retornar 404, deixando `/login` sem estilos (Tailwind/branding Mauá).
+- **Fix**: `.next` limpo (`rm -rf .next`) e `npm run dev` reiniciado. CSS volta a responder `200 text/css`.
+- **Nota de processo**: ao rodar `npm run build` para validação (agora obrigatório antes de cada commit), reiniciar o dev server depois para evitar esse problema.
+
+### Remote GitHub configurado
+- `origin` → `https://github.com/luanagcouto-eng/panoramasemanalplanejamento.git`, branch `master` enviada (`git push -u origin master`).
 
 ### Sync NextAuth ↔ Supabase `auth.users` (decisão #8 — resolvido)
 - **Decisão**: manter Entra ID como provedor de autenticação (via NextAuth) e Supabase como backend de dados/RLS, sincronizando automaticamente o usuário Entra ID com `auth.users`/`profiles` no primeiro login. Alternativa de trocar a FK `profiles.id` por `TEXT`/`sub` do Entra ID foi descartada (exigiria infraestrutura própria de tokens e reescrita de todas as policies de RLS).
